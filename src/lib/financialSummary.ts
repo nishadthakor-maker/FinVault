@@ -167,29 +167,10 @@ export async function getFinancialSummary(
   const ccGrandTotal     = barclaycardSpend + hsbcSpend + tescoSpend + nwCCSpend
 
   // ── 5. Bonus detection ───────────────────────────────────────────────────────
-  // Fetch last 5 salary entries (prior to this period) so we have enough
-  // data even if one or two were bonus months. Then exclude the single
-  // highest value before averaging — this prevents a past bonus from
-  // inflating the baseline. Requires at least 2 remaining values.
-  let normalSalary = salary
-  if (nwMainId) {
-    const { data: hist } = await supabase
-      .from('transactions')
-      .select('amount')
-      .eq('account_id', nwMainId)
-      .eq('category', 'Salary')
-      .lt('date', start)
-      .order('date', { ascending: false })
-      .limit(5)
-    const amounts = (hist ?? []).map(t => Number(t.amount)).sort((a, b) => a - b)
-    // Remove the highest value to exclude any bonus months in the history
-    const baseline = amounts.length > 1 ? amounts.slice(0, -1) : amounts
-    if (baseline.length >= 1) {
-      normalSalary = baseline.reduce((a, b) => a + b, 0) / baseline.length
-    }
-  }
-  const isBonus     = salary > normalSalary * 1.10
-  const bonusAmount = isBonus ? Math.round(salary - normalSalary) : 0
+  // Baseline salary: £3,494.38 per Dec 2025 payroll — update if salary changes
+  const normalSalary = 3494.38
+  const isBonus      = salary > normalSalary * 1.10   // threshold: £3,843.82
+  const bonusAmount  = isBonus ? Math.round(salary - normalSalary) : 0
 
   // ── 6. Derived totals ────────────────────────────────────────────────────────
   const realExpensesTotal = fixedBillsTotal + rentTotal + carFinanceTotal + directDiscretTotal + ccGrandTotal
