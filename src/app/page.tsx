@@ -68,9 +68,9 @@ function WaterfallRow({
   return (
     <div className={`flex items-center gap-3 py-2 ${indent ? 'pl-4' : ''}`}>
       <div className="w-28 shrink-0">
-        <p className="text-xs" style={{ color: '#8892a4' }}>{label}</p>
+        <p className="text-xs" style={{ color: '#8899aa' }}>{label}</p>
       </div>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#1e2a3a' }}>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
         <div
           className="h-full rounded-full"
           style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
       <TopNav />
 
       <main className="mx-auto w-full max-w-4xl px-4 pt-6 md:px-8">
@@ -165,7 +165,7 @@ export default async function DashboardPage() {
         {/* Welcome */}
         <section className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">{greeting}, Nishad</h1>
-          <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
         </section>
@@ -176,9 +176,9 @@ export default async function DashboardPage() {
             <div
               key={card.label}
               className="rounded-2xl p-4 md:p-5"
-              style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+              style={{ background: 'linear-gradient(135deg, #1a2535 0%, #1e2d42 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
             >
-              <p className="mb-3 text-xs font-medium uppercase tracking-wider" style={{ color: '#8892a4' }}>
+              <p className="mb-3 text-xs font-medium uppercase tracking-wider" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
                 {card.label}
               </p>
               <p
@@ -196,17 +196,17 @@ export default async function DashboardPage() {
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold md:text-lg">Money Flow</h2>
-            <span className="text-xs" style={{ color: '#8892a4' }}>
+            <span className="text-xs" style={{ color: '#8899aa' }}>
               {period.start.slice(5).replace('-', '/')} – {period.end.slice(5).replace('-', '/')}
             </span>
           </div>
 
           <div
             className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             {/* Income bar */}
-            <div className="flex items-center gap-3 pb-3 mb-2" style={{ borderBottom: '1px solid #1e2a3a' }}>
+            <div className="flex items-center gap-3 pb-3 mb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="w-28 shrink-0">
                 <p className="text-xs font-medium" style={{ color: '#00FF94' }}>Salary In</p>
               </div>
@@ -233,7 +233,7 @@ export default async function DashboardPage() {
             ))}
 
             {/* Remaining */}
-            <div className="flex items-center gap-3 pt-3 mt-1" style={{ borderTop: '1px solid #1e2a3a' }}>
+            <div className="flex items-center gap-3 pt-3 mt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="w-28 shrink-0">
                 <p className="text-xs font-medium" style={{ color: summary.cashFlow.remaining >= 0 ? '#00D4FF' : '#FF4488' }}>
                   Remaining
@@ -264,7 +264,7 @@ export default async function DashboardPage() {
 
           <div
             className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             {recent.length === 0 ? (
               <p className="px-5 py-8 text-center text-sm" style={{ color: '#4a5568' }}>
@@ -277,12 +277,12 @@ export default async function DashboardPage() {
                 <div
                   key={tx.id}
                   className="flex items-center gap-3 px-4 py-3.5 md:px-5 md:py-4"
-                  style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
+                  style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
                 >
                   {/* Icon */}
                   <div
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base"
-                    style={{ backgroundColor: '#0d1117' }}
+                    style={{ backgroundColor: '#0f1923' }}
                   >
                     {txIcon(tx.category, tx.type)}
                   </div>
@@ -314,7 +314,7 @@ export default async function DashboardPage() {
                   <div className="ml-1 shrink-0">
                     {isCredit
                       ? <ArrowDownLeft size={14} style={{ color: '#00FF94' }} />
-                      : <ArrowUpRight  size={14} style={{ color: '#8892a4' }} />
+                      : <ArrowUpRight  size={14} style={{ color: '#8899aa' }} />
                     }
                   </div>
                 </div>

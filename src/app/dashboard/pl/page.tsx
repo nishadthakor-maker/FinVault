@@ -34,7 +34,7 @@ type Tx = {
 function SectionHeader({ title, total, color }: { title: string; total: number; color: string }) {
   return (
     <div className="flex items-center justify-between px-1 mb-2">
-      <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8892a4' }}>{title}</h3>
+      <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>{title}</h3>
       <span className="text-sm font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
         {total > 0 ? '+' : ''}{total < 0 ? '-' : ''}{gbp(total)}
       </span>
@@ -48,7 +48,7 @@ function TxRow({ tx, borderTop = true }: { tx: Tx; borderTop?: boolean }) {
   return (
     <div
       className="flex items-center gap-3 px-4 py-3"
-      style={{ borderTop: borderTop ? '1px solid #1e2a3a' : 'none' }}
+      style={{ borderTop: borderTop ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{tx.merchant_name || tx.description}</p>
@@ -79,7 +79,7 @@ function LineItemRow({
   return (
     <div
       className="flex items-center gap-3 px-4 py-3"
-      style={{ borderTop: borderTop ? '1px solid #1e2a3a' : 'none' }}
+      style={{ borderTop: borderTop ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{item.name}</p>
@@ -161,7 +161,7 @@ export default async function PLPage() {
   const surplus = netPosition.surplusDeficit
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
       <TopNav />
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-8">
@@ -169,7 +169,7 @@ export default async function PLPage() {
         {/* Page header */}
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">P&amp;L</h1>
-          <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
             Pay period:{' '}
             {new Date(period.start + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
             {' '}–{' '}
@@ -180,23 +180,23 @@ export default async function PLPage() {
         {/* ── Summary box ─────────────────────────────────────────────────────── */}
         <section
           className="mb-6 rounded-2xl p-5"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ background: 'linear-gradient(135deg, #1a2535 0%, #1e2d42 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="grid grid-cols-3 gap-4 mb-4">
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Income</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Income</p>
               <p className="text-lg font-semibold" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
                 +{gbp(income.total)}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Real Spend</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Real Spend</p>
               <p className="text-lg font-semibold" style={{ color: '#FF4488', fontFamily: 'var(--font-dm-mono)' }}>
                 -{gbp(realExpenses.total)}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Net</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Net</p>
               <p
                 className="text-lg font-semibold flex items-center gap-1"
                 style={{ color: surplus >= 0 ? '#00FF94' : '#FF4488', fontFamily: 'var(--font-dm-mono)' }}
@@ -212,14 +212,14 @@ export default async function PLPage() {
           </div>
 
           {/* Breakdown bars */}
-          <div className="space-y-2 pt-3" style={{ borderTop: '1px solid #1e2a3a' }}>
+          <div className="space-y-2 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
             {[
               { label: 'Fixed (rent + bills + car)', value: rent.total + carFinance.total + fixedBills.total, pct: income.salary > 0 ? ((rent.total + carFinance.total + fixedBills.total) / income.salary) * 100 : 0, color: '#A78BFA' },
               { label: 'Discretionary',              value: directDiscretionary.total + creditCardSpending.grandTotal, pct: income.salary > 0 ? ((directDiscretionary.total + creditCardSpending.grandTotal) / income.salary) * 100 : 0, color: '#00D4FF' },
             ].map(row => (
               <div key={row.label}>
                 <div className="flex justify-between text-xs mb-1">
-                  <span style={{ color: '#8892a4' }}>{row.label}</span>
+                  <span style={{ color: '#8899aa' }}>{row.label}</span>
                   <span style={{ color: row.color, fontFamily: 'var(--font-dm-mono)' }}>
                     {gbp(row.value)} ({row.pct.toFixed(0)}%)
                   </span>
@@ -238,7 +238,7 @@ export default async function PLPage() {
         {/* ── INCOME ──────────────────────────────────────────────────────────── */}
         <section
           className="mb-4 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="px-4 pt-4 pb-2">
             <SectionHeader title="Income" total={income.total} color="#00FF94" />
@@ -261,7 +261,7 @@ export default async function PLPage() {
         {rent.total > 0 && (
           <section
             className="mb-4 rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             <div className="px-4 pt-4 pb-2">
               <SectionHeader title="Rent" total={-rent.total} color="#A78BFA" />
@@ -277,7 +277,7 @@ export default async function PLPage() {
         {carFinance.total > 0 && (
           <section
             className="mb-4 rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             <div className="px-4 pt-4 pb-2">
               <SectionHeader title="Car Finance" total={-carFinance.total} color="#A78BFA" />
@@ -292,7 +292,7 @@ export default async function PLPage() {
         {/* Fixed Bills */}
         <section
           className="mb-4 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="px-4 pt-4 pb-2">
             <SectionHeader title="Fixed Bills" total={-fixedBills.total} color="#A78BFA" />
@@ -310,7 +310,7 @@ export default async function PLPage() {
         {/* Discretionary (NatWest + CC combined) */}
         <section
           className="mb-4 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="px-4 pt-4 pb-2">
             <SectionHeader
@@ -326,7 +326,7 @@ export default async function PLPage() {
           </div>
           <div className="pb-2">
             {discretGroups.map((g, i) => (
-              <div key={g.cat} style={{ borderTop: i > 0 ? '1px solid #1e2a3a' : 'none' }}>
+              <div key={g.cat} style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
                 <ExpandableGroup
                   label={g.cat}
                   total={g.total}
@@ -350,11 +350,11 @@ export default async function PLPage() {
         {/* ── CASH FLOW FROM NATWEST ──────────────────────────────────────────── */}
         <section
           className="mb-4 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="px-4 pt-4 pb-2">
             <div className="flex items-center justify-between px-1 mb-2">
-              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8892a4' }}>
+              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
                 Cash Flow — NatWest
               </h3>
               <span className="text-xs" style={{ color: '#4a5568' }}>not counted in real spend</span>
@@ -372,7 +372,7 @@ export default async function PLPage() {
           )}
 
           {/* Savings */}
-          <div style={{ borderTop: creditCardRepayments.items.length > 0 ? '1px solid #1e2a3a' : 'none' }}>
+          <div style={{ borderTop: creditCardRepayments.items.length > 0 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
             <p className="px-4 pt-3 pb-1 text-xs" style={{ color: '#4a5568' }}>savings moved out</p>
             {savingsMovements.grossOut > 0 ? (
               <div className="flex items-center gap-3 px-4 py-3">
@@ -390,7 +390,7 @@ export default async function PLPage() {
 
           {/* Transfers row */}
           {transferTxns.filter(t => t.tag === 'Transfer' && !t.category && t.amount > 0).length > 0 && (
-            <div style={{ borderTop: '1px solid #1e2a3a' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <p className="px-4 pt-3 pb-1 text-xs" style={{ color: '#4a5568' }}>other transfers</p>
               {transferTxns
                 .filter(t => t.tag === 'Transfer' && !t.category && t.amount > 0)
@@ -399,7 +399,7 @@ export default async function PLPage() {
           )}
 
           {/* Remaining */}
-          <div className="flex items-center gap-3 px-4 py-3 mx-3 my-2 rounded-xl" style={{ backgroundColor: '#0d1117' }}>
+          <div className="flex items-center gap-3 px-4 py-3 mx-3 my-2 rounded-xl" style={{ backgroundColor: '#0f1923' }}>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">NatWest remaining</p>
               <p className="text-xs" style={{ color: '#4a5568' }}>after all outflows</p>

@@ -30,7 +30,7 @@ export default async function AccountsPage({
   const isConnected = !!tokenRow
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
 
       {/* Top nav */}
       <TopNav />
@@ -52,7 +52,7 @@ export default async function AccountsPage({
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold md:text-3xl">Connected Accounts</h1>
-            <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+            <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
               Link your bank to sync balances and transactions.
             </p>
           </div>
@@ -60,7 +60,7 @@ export default async function AccountsPage({
             <Link
               href="/api/truelayer/connect"
               className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a', color: '#00D4FF' }}
+              style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', color: '#00D4FF', boxShadow: '0 1px 6px rgba(0,0,0,0.2)' }}
             >
               <Plus size={14} />
               Add bank
@@ -72,20 +72,20 @@ export default async function AccountsPage({
           /* ── Connected state ── */
           <div
             className="rounded-2xl p-5 md:p-6"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             {/* Connection status row */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-full"
-                  style={{ backgroundColor: '#0d1117' }}
+                  style={{ backgroundColor: '#0f1923' }}
                 >
                   <Building2 size={18} style={{ color: '#00D4FF' }} />
                 </div>
                 <div>
                   <p className="text-sm font-semibold">TrueLayer (Sandbox)</p>
-                  <p className="text-xs" style={{ color: '#8892a4' }}>
+                  <p className="text-xs" style={{ color: '#8899aa' }}>
                     Connected ·{' '}
                     {tokenRow.updated_at
                       ? `Last synced ${new Date(tokenRow.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
@@ -99,10 +99,10 @@ export default async function AccountsPage({
               </div>
             </div>
 
-            <div className="mt-5 pt-5" style={{ borderTop: '1px solid #1e2a3a' }}>
+            <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               <div className="flex items-center gap-2 mb-3">
-                <RefreshCw size={14} style={{ color: '#8892a4' }} />
-                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#8892a4' }}>
+                <RefreshCw size={14} style={{ color: '#8899aa' }} />
+                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#8899aa' }}>
                   Accounts — sync coming in Phase 1
                 </p>
               </div>
@@ -111,16 +111,16 @@ export default async function AccountsPage({
                 <div
                   key={i}
                   className="flex items-center justify-between rounded-xl px-4 py-3 mb-2 last:mb-0"
-                  style={{ backgroundColor: '#0d1117' }}
+                  style={{ backgroundColor: '#0f1923' }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full animate-pulse" style={{ backgroundColor: '#1e2a3a' }} />
+                    <div className="h-8 w-8 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
                     <div className="space-y-1.5">
-                      <div className="h-3 w-28 rounded animate-pulse" style={{ backgroundColor: '#1e2a3a' }} />
-                      <div className="h-2.5 w-16 rounded animate-pulse" style={{ backgroundColor: '#1e2a3a' }} />
+                      <div className="h-3 w-28 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
+                      <div className="h-2.5 w-16 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
                     </div>
                   </div>
-                  <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: '#1e2a3a' }} />
+                  <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
                 </div>
               ))}
             </div>
@@ -129,22 +129,22 @@ export default async function AccountsPage({
           /* ── Empty state ── */
           <div
             className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             <div
               className="mb-5 flex h-16 w-16 items-center justify-center rounded-full"
-              style={{ backgroundColor: '#0d1117' }}
+              style={{ backgroundColor: '#0f1923' }}
             >
               <Building2 size={28} style={{ color: '#00D4FF' }} />
             </div>
             <h2 className="mb-2 text-lg font-semibold">No bank connected yet</h2>
-            <p className="mb-8 max-w-xs text-sm" style={{ color: '#8892a4' }}>
+            <p className="mb-8 max-w-xs text-sm" style={{ color: '#8899aa' }}>
               Connect your bank account via TrueLayer to start syncing your balances and transactions.
             </p>
             <Link
               href="/api/truelayer/connect"
               className="rounded-xl px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#00D4FF', color: '#0d1117' }}
+              style={{ backgroundColor: '#00D4FF', color: '#0f1923' }}
             >
               Connect your bank
             </Link>

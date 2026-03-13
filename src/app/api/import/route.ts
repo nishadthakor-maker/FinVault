@@ -119,6 +119,10 @@ function autoTag(description: string): AutoTagResult {
     return { tag: 'Fixed', category: 'TV & News', transfer_flag: false }
 
   // ── Discretionary ────────────────────────────────────────────────────────────
+  if (d.includes('SQUARE INC'))
+    return { tag: 'Discretionary', category: 'Staff Shop', transfer_flag: false }
+  if (d.includes('MERCERS'))
+    return { tag: 'Discretionary', category: 'Groceries', transfer_flag: false }
   if (d.includes('TESCO') || d.includes('SAINSBURY') || d.includes('ASDA') || d.includes('MORRISONS') || d.includes('ALDI') || d.includes('LIDL') || d.includes('WAITROSE') || d.includes('CO-OP'))
     return { tag: 'Discretionary', category: 'Groceries', transfer_flag: false }
   if (d.includes('PETROL') || d.includes('FUEL') || d.includes('BP ') || d.includes('SHELL') || d.includes('ESSO') || d.includes('TEXACO'))

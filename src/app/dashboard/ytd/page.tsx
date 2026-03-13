@@ -44,7 +44,7 @@ function SurplusChart({ rows }: { rows: PeriodRow[] }) {
       style={{ maxHeight: '180px' }}
     >
       {/* Zero line */}
-      <line x1={ml} y1={zero} x2={W - mr} y2={zero} stroke="#1e2a3a" strokeWidth="1" />
+      <line x1={ml} y1={zero} x2={W - mr} y2={zero} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
 
       {/* Positive fill */}
       <defs>
@@ -82,7 +82,7 @@ function SurplusChart({ rows }: { rows: PeriodRow[] }) {
             cy={y(v)}
             r="4"
             fill={v >= 0 ? '#00FF94' : '#FF4488'}
-            stroke="#131929"
+            stroke="#1a2535"
             strokeWidth="2"
           />
         )
@@ -137,7 +137,7 @@ export default async function YTDPage() {
   const ytdSurplus = rows.reduce((s, r) => s + r.summary.netPosition.surplusDeficit, 0)
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
       <TopNav />
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-8">
@@ -145,7 +145,7 @@ export default async function YTDPage() {
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">Year to Date</h1>
-          <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
             Last {rows.length} pay periods · {periods[0].label} – {periods[periods.length - 1].label}
           </p>
         </div>
@@ -161,9 +161,9 @@ export default async function YTDPage() {
             <div
               key={card.label}
               className="rounded-2xl p-4"
-              style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+              style={{ background: 'linear-gradient(135deg, #1a2535 0%, #1e2d42 100%)', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
             >
-              <p className="mb-2 text-xs font-medium uppercase tracking-wider" style={{ color: '#8892a4' }}>
+              <p className="mb-2 text-xs font-medium uppercase tracking-wider" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
                 {card.label}
               </p>
               <p
@@ -179,9 +179,9 @@ export default async function YTDPage() {
         {/* Surplus/Deficit trend chart */}
         <section
           className="mb-6 rounded-2xl p-4 md:p-5"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
-          <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#8892a4' }}>
+          <h2 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: '#8899aa' }}>
             Surplus / Deficit Trend
           </h2>
           <SurplusChart rows={rows} />
@@ -190,12 +190,12 @@ export default async function YTDPage() {
         {/* Per-period breakdown table */}
         <section
           className="mb-6 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           {/* Table header */}
           <div
             className="grid grid-cols-5 px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-            style={{ color: '#4a5568', borderBottom: '1px solid #1e2a3a' }}
+            style={{ color: '#4a5568', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
           >
             <span>Period</span>
             <span className="text-right">Salary</span>
@@ -214,8 +214,8 @@ export default async function YTDPage() {
                 key={period.start}
                 className="grid grid-cols-5 px-4 py-3.5 items-center"
                 style={{
-                  borderTop:       i === 0 ? 'none' : '1px solid #1e2a3a',
-                  backgroundColor: isCurrent ? '#0d1117' : 'transparent',
+                  borderTop:       i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                  backgroundColor: isCurrent ? 'rgba(0,212,255,0.04)' : 'transparent',
                 }}
               >
                 {/* Period */}
@@ -281,9 +281,9 @@ export default async function YTDPage() {
           {/* Totals row */}
           <div
             className="grid grid-cols-5 px-4 py-3.5 items-center text-sm font-bold"
-            style={{ borderTop: '2px solid #1e2a3a' }}
+            style={{ borderTop: '2px solid rgba(255,255,255,0.1)' }}
           >
-            <span style={{ color: '#8892a4' }}>Total</span>
+            <span style={{ color: '#8899aa' }}>Total</span>
             <span className="text-right" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
               {gbp(ytdSalary)}
             </span>
@@ -305,10 +305,10 @@ export default async function YTDPage() {
         {/* Per-period spend breakdown */}
         <section
           className="mb-6 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="px-4 pt-4 pb-2">
-            <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8892a4' }}>
+            <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
               Spend Breakdown
             </h2>
           </div>
@@ -316,7 +316,7 @@ export default async function YTDPage() {
           {/* Header */}
           <div
             className="grid grid-cols-4 px-4 py-2 text-xs font-semibold uppercase tracking-wider"
-            style={{ color: '#4a5568', borderBottom: '1px solid #1e2a3a', borderTop: '1px solid #1e2a3a' }}
+            style={{ color: '#4a5568', borderBottom: '1px solid rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.06)' }}
           >
             <span>Period</span>
             <span className="text-right">Fixed</span>
@@ -334,7 +334,7 @@ export default async function YTDPage() {
               <div
                 key={period.start}
                 className="grid grid-cols-4 px-4 py-3 items-center"
-                style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
+                style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
               >
                 <span className="text-sm font-medium">{period.label}</span>
                 <span className="text-right text-sm" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>

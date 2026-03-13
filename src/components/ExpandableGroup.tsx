@@ -38,7 +38,7 @@ export function ExpandableGroup({ label, total, transactions, defaultOpen = fals
         style={{ color: '#f0f4f8' }}
       >
         <div className="flex items-center gap-2">
-          {open ? <ChevronDown size={14} style={{ color: '#8892a4' }} /> : <ChevronRight size={14} style={{ color: '#8892a4' }} />}
+          {open ? <ChevronDown size={14} style={{ color: '#8899aa' }} /> : <ChevronRight size={14} style={{ color: '#8899aa' }} />}
           <span className="font-medium">{label}</span>
           <span className="text-xs" style={{ color: '#4a5568' }}>({transactions.length})</span>
         </div>
@@ -53,7 +53,7 @@ export function ExpandableGroup({ label, total, transactions, defaultOpen = fals
             <div
               key={tx.id}
               className="flex items-center justify-between py-2 px-3"
-              style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a1a' }}
+              style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.04)' }}
             >
               <div className="min-w-0 flex-1 mr-3">
                 <p className="truncate text-xs font-medium" style={{ color: '#c0c8d4' }}>{tx.description}</p>

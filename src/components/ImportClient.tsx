@@ -122,10 +122,10 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     return (
       <div
         className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
-        style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+        style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
       >
         <AlertCircle size={32} className="mb-4" style={{ color: '#FF4488' }} />
-        <p className="text-sm" style={{ color: '#8892a4' }}>
+        <p className="text-sm" style={{ color: '#8899aa' }}>
           You need to add a bank account before importing transactions.
         </p>
       </div>
@@ -137,7 +137,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     return (
       <div
         className="rounded-2xl px-6 py-10"
-        style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+        style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
       >
         <div className="flex flex-col items-center mb-6">
           <CheckCircle2 size={40} className="mb-3" style={{ color: '#00FF94' }} />
@@ -176,12 +176,12 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
                   : <ChevronRight size={14} style={{ color: '#F59E0B' }} />}
               </button>
               {reviewOpen && (
-                <div style={{ backgroundColor: '#0d1117' }}>
+                <div style={{ backgroundColor: '#0f1923' }}>
                   {needsReview.map((item, i) => (
                     <div
                       key={i}
                       className="px-4 py-2.5"
-                      style={{ borderTop: '1px solid #1e2a3a' }}
+                      style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -225,7 +225,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
           <button
             onClick={reset}
             className="rounded-xl px-6 py-2.5 text-sm font-semibold"
-            style={{ backgroundColor: '#0d1117', border: '1px solid #1e2a3a', color: '#00D4FF' }}
+            style={{ backgroundColor: '#0f1923', border: '1px solid rgba(255,255,255,0.06)', color: '#00D4FF' }}
           >
             Import another file
           </button>
@@ -239,15 +239,15 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     return (
       <div
         className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
-        style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+        style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
       >
         <AlertCircle size={40} className="mb-4" style={{ color: '#FF4488' }} />
         <h2 className="text-xl font-semibold mb-1">Import failed</h2>
-        <p className="text-sm mb-6 max-w-sm" style={{ color: '#8892a4' }}>{error}</p>
+        <p className="text-sm mb-6 max-w-sm" style={{ color: '#8899aa' }}>{error}</p>
         <button
           onClick={reset}
           className="rounded-xl px-6 py-2.5 text-sm font-semibold"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a', color: '#00D4FF' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', color: '#00D4FF' }}
         >
           Try again
         </button>
@@ -260,13 +260,13 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     return (
       <div
         className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
-        style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+        style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
       >
         <div
           className="h-10 w-10 rounded-full border-2 border-t-transparent animate-spin mb-4"
           style={{ borderColor: '#00D4FF', borderTopColor: 'transparent' }}
         />
-        <p className="text-sm" style={{ color: '#8892a4' }}>Importing {preview.length} transactions…</p>
+        <p className="text-sm" style={{ color: '#8899aa' }}>Importing {preview.length} transactions…</p>
       </div>
     )
   }
@@ -282,25 +282,25 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
         {/* Summary bar */}
         <div
           className="rounded-2xl p-4 md:p-5 flex flex-col sm:flex-row sm:items-center gap-4"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Bank</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Bank</p>
               <p className="text-sm font-semibold">{BANK_LABELS[bank] ?? bank}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Transactions</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Transactions</p>
               <p className="text-sm font-semibold" style={{ fontFamily: 'var(--font-dm-mono)' }}>{preview.length}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Total spend</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Total spend</p>
               <p className="text-sm font-semibold" style={{ color: '#FF4488', fontFamily: 'var(--font-dm-mono)' }}>
                 -{fmt(totalSpend)}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8892a4' }}>Total in</p>
+              <p className="text-xs uppercase tracking-wider mb-1" style={{ color: '#8899aa' }}>Total in</p>
               <p className="text-sm font-semibold" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
                 +{fmt(totalCredit)}
               </p>
@@ -310,14 +310,14 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
             <button
               onClick={reset}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-medium"
-              style={{ backgroundColor: '#0d1117', border: '1px solid #1e2a3a', color: '#8892a4' }}
+              style={{ backgroundColor: '#0f1923', border: '1px solid rgba(255,255,255,0.06)', color: '#8899aa' }}
             >
               <X size={14} /> Cancel
             </button>
             <button
               onClick={handleConfirm}
               className="flex items-center gap-1.5 rounded-xl px-4 py-2.5 text-sm font-semibold"
-              style={{ backgroundColor: '#00D4FF', color: '#0d1117' }}
+              style={{ backgroundColor: '#00D4FF', color: '#0f1923' }}
             >
               Import {preview.length} transactions <ArrowRight size={14} />
             </button>
@@ -334,12 +334,12 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
         {/* Transaction table */}
         <div
           className="rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr style={{ borderBottom: '1px solid #1e2a3a' }}>
+                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                   {['Date', 'Description', 'Amount', 'Type'].map(h => (
                     <th
                       key={h}
@@ -355,11 +355,11 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
                 {preview.map((tx, i) => (
                   <tr
                     key={i}
-                    style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
+                    style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
                   >
                     <td
                       className="px-4 py-3 text-xs whitespace-nowrap"
-                      style={{ color: '#8892a4', fontFamily: 'var(--font-dm-mono)' }}
+                      style={{ color: '#8899aa', fontFamily: 'var(--font-dm-mono)' }}
                     >
                       {dateLabel(tx.date)}
                     </td>
@@ -401,7 +401,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     <div className="space-y-4">
       {/* Account selector */}
       <div>
-        <label className="block text-sm font-medium mb-2" style={{ color: '#8892a4' }}>
+        <label className="block text-sm font-medium mb-2" style={{ color: '#8899aa' }}>
           Import into account
         </label>
         <select
@@ -409,8 +409,8 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
           onChange={e => setAccountId(e.target.value)}
           className="w-full rounded-xl px-4 py-3 text-sm outline-none"
           style={{
-            backgroundColor: '#131929',
-            border: '1px solid #1e2a3a',
+            backgroundColor: '#1a2535',
+            border: '1px solid rgba(255,255,255,0.06)',
             color: '#f0f4f8',
           }}
         >
@@ -433,8 +433,8 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
         onDragLeave={onDragLeave}
         className="relative flex flex-col items-center justify-center rounded-2xl px-6 py-14 text-center cursor-pointer transition-colors"
         style={{
-          backgroundColor: dragging ? '#1e2a3a' : '#131929',
-          border: `2px dashed ${dragging ? '#00D4FF' : '#1e2a3a'}`,
+          backgroundColor: dragging ? 'rgba(255,255,255,0.06)' : '#1a2535',
+          border: `2px dashed ${dragging ? '#00D4FF' : 'rgba(255,255,255,0.12)'}`,
         }}
       >
         <input
@@ -449,7 +449,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
           <>
             <div
               className="mb-3 flex h-12 w-12 items-center justify-center rounded-full"
-              style={{ backgroundColor: '#0d1117' }}
+              style={{ backgroundColor: '#0f1923' }}
             >
               {isCSV
                 ? <FileSpreadsheet size={22} style={{ color: '#00D4FF' }} />
@@ -476,7 +476,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
       {/* Format guide */}
       <div
         className="rounded-xl px-4 py-3 grid grid-cols-2 gap-2 sm:grid-cols-4"
-        style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+        style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
       >
         {[
           { name: 'NatWest', ext: 'CSV', color: '#00D4FF' },
@@ -491,7 +491,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
             >
               {b.ext}
             </span>
-            <span className="text-xs" style={{ color: '#8892a4' }}>{b.name}</span>
+            <span className="text-xs" style={{ color: '#8899aa' }}>{b.name}</span>
           </div>
         ))}
       </div>
@@ -501,7 +501,7 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
         onClick={handlePreview}
         disabled={!file || !accountId || loading}
         className="w-full rounded-xl py-3 text-sm font-semibold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-        style={{ backgroundColor: '#00D4FF', color: '#0d1117' }}
+        style={{ backgroundColor: '#00D4FF', color: '#0f1923' }}
       >
         {loading
           ? <><div className="h-4 w-4 rounded-full border-2 border-[#0d1117] border-t-transparent animate-spin" /> Parsing…</>

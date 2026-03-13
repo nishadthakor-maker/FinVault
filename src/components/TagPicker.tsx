@@ -27,6 +27,7 @@ const OPTIONS: Option[] = [
   { tag: 'Discretionary', category: 'Personal Care',   label: '💇 Personal Care' },
   { tag: 'Discretionary', category: 'Transport',       label: '🚂 Transport' },
   { tag: 'Discretionary', category: 'Family',          label: '👨‍👩‍👧 Family' },
+  { tag: 'Discretionary', category: 'Staff Shop',       label: '🏪 Staff Shop' },
   { tag: 'Discretionary', category: 'Other',           label: '📦 Other' },
   { tag: 'Transfer',      category: 'Transfer',        label: '↔️ Transfer' },
 ]
@@ -96,19 +97,24 @@ export function TagPicker({ txId, tag: initialTag, category: initialCategory }: 
   const label   = tag && category ? `${tag} · ${category}` : tag ?? 'Untagged'
 
   // Compute dropdown placement from live rect
-  const openUp = rect ? rect.bottom > window.innerHeight - 200 : false
+  // Open upward if less than 300px of space below the trigger
+  const openUp = rect ? (window.innerHeight - rect.bottom) < 300 : false
   const dropdownStyle: React.CSSProperties | undefined = rect
     ? {
-        position: 'fixed',
-        top:    openUp ? undefined : rect.bottom + 4,
-        bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
-        left:   Math.max(4, rect.right - 196),
-        width:  196,
-        zIndex: 9999,
+        position:        'fixed',
+        top:             openUp ? undefined : rect.bottom + 4,
+        bottom:          openUp ? (window.innerHeight - rect.top + 4) : undefined,
+        left:            Math.max(4, rect.right - 196),
+        width:           196,
+        maxHeight:       openUp
+                           ? Math.min(280, rect.top - 8)
+                           : Math.min(280, window.innerHeight - rect.bottom - 8),
+        zIndex:          9999,
         backgroundColor: '#1a2535',
         border:          '1px solid #2a3a4a',
         borderRadius:    '12px',
-        overflow:        'hidden',
+        overflowY:       'auto',
+        overflowX:       'hidden',
         padding:         '4px 0',
         boxShadow:       '0 8px 32px rgba(0,0,0,0.6)',
       }
@@ -141,7 +147,7 @@ export function TagPicker({ txId, tag: initialTag, category: initialCategory }: 
                 key={`${opt.tag}-${opt.category}`}
                 onClick={() => select(opt)}
                 className="w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-white/5"
-                style={{ color: active ? TAG_COLOURS[opt.tag] : '#8892a4' }}
+                style={{ color: active ? TAG_COLOURS[opt.tag] : '#8899aa' }}
               >
                 {opt.label}
               </button>

@@ -2,16 +2,17 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange } from 'lucide-react'
+import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange, List } from 'lucide-react'
 import { SignOutButton } from '@/components/SignOutButton'
 
 const navItems = [
   { href: '/',                    label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/import',    label: 'Import',    icon: Upload },
   { href: '/dashboard/accounts',  label: 'Accounts',  icon: CreditCard },
-  { href: '/dashboard/pl',        label: 'P&L',       icon: TrendingUp },
-  { href: '/dashboard/trends',    label: 'Trends',    icon: BarChart2 },
-  { href: '/dashboard/ytd',       label: 'YTD',       icon: CalendarRange },
+  { href: '/dashboard/transactions', label: 'Transactions', icon: List },
+  { href: '/dashboard/pl',           label: 'P&L',          icon: TrendingUp },
+  { href: '/dashboard/trends',       label: 'Trends',       icon: BarChart2 },
+  { href: '/dashboard/ytd',          label: 'YTD',          icon: CalendarRange },
 ]
 
 export function TopNav() {
@@ -20,7 +21,7 @@ export function TopNav() {
   return (
     <header
       className="sticky top-0 z-30 flex items-center justify-between px-4 py-3 md:px-8"
-      style={{ backgroundColor: '#0d1117', borderBottom: '1px solid #1e2a3a' }}
+      style={{ backgroundColor: '#0f1923', borderBottom: '1px solid rgba(255,255,255,0.08)' }}
     >
       {/* Left: wordmark + desktop nav links */}
       <div className="flex items-center gap-8">
@@ -42,7 +43,7 @@ export function TopNav() {
                 href={href}
                 className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors"
                 style={{
-                  color:           active ? '#00D4FF' : '#8892a4',
+                  color:           active ? '#00D4FF' : '#8899aa',
                   backgroundColor: active ? 'rgba(0,212,255,0.08)' : 'transparent',
                 }}
               >

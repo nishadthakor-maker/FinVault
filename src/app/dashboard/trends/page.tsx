@@ -60,7 +60,7 @@ function MonthlyChart({ data }: { data: PeriodSummary[] }) {
         const y = mt + chartH - (tick / ceiling) * chartH
         return (
           <g key={tick}>
-            <line x1={ml} y1={y} x2={W - mr} y2={y} stroke="#1e2a3a" strokeWidth={1} />
+            <line x1={ml} y1={y} x2={W - mr} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
             <text x={ml - 6} y={y + 4} textAnchor="end" fontSize={9} fill="#4a5568">
               {fmtTick(tick)}
             </text>
@@ -106,7 +106,7 @@ function CategoryTrends({ rows, prevLabel, currLabel }: { rows: CatRow[]; prevLa
 
   return (
     <div>
-      <div className="grid grid-cols-4 px-4 pb-2" style={{ borderBottom: '1px solid #1e2a3a' }}>
+      <div className="grid grid-cols-4 px-4 pb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <span className="text-xs col-span-2" style={{ color: '#4a5568' }}>Category</span>
         <span className="text-xs text-right" style={{ color: '#4a5568' }}>{prevLabel}</span>
         <span className="text-xs text-right" style={{ color: '#4a5568' }}>{currLabel}</span>
@@ -121,7 +121,7 @@ function CategoryTrends({ rows, prevLabel, currLabel }: { rows: CatRow[]; prevLa
           <div
             key={row.category}
             className="grid grid-cols-4 items-center px-4 py-2.5"
-            style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
+            style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
           >
             <div className="col-span-2 flex items-center gap-2 min-w-0">
               <span className="text-sm font-medium truncate" style={{ color }}>{row.category}</span>
@@ -132,7 +132,7 @@ function CategoryTrends({ rows, prevLabel, currLabel }: { rows: CatRow[]; prevLa
                 </span>
               )}
             </div>
-            <span className="text-xs text-right" style={{ color: '#8892a4', fontFamily: 'var(--font-dm-mono)' }}>
+            <span className="text-xs text-right" style={{ color: '#8899aa', fontFamily: 'var(--font-dm-mono)' }}>
               {row.prev > 0 ? gbp(row.prev) : '—'}
             </span>
             <span className="text-xs text-right font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
@@ -266,14 +266,14 @@ export default async function TrendsPage() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
       <TopNav />
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-8">
 
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">Trends</h1>
-          <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
             {oldest.label} – {newest.label} · pay period analysis
           </p>
         </div>
@@ -282,11 +282,11 @@ export default async function TrendsPage() {
         {insight && (
           <section
             className="mb-6 rounded-2xl p-5"
-            style={{ backgroundColor: '#131929', border: '1px solid #A78BFA40' }}
+            style={{ backgroundColor: '#1a2535', border: '1px solid #A78BFA40', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
           >
             <div className="flex items-center gap-2 mb-3">
               <Sparkles size={15} style={{ color: '#A78BFA' }} />
-              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#A78BFA' }}>
+              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#A78BFA', letterSpacing: '0.08em' }}>
                 AI Insight
               </h2>
             </div>
@@ -297,23 +297,23 @@ export default async function TrendsPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
           {/* Section A — Pay period bar chart */}
-          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}>
+          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
             <div className="px-4 pt-4 pb-2">
-              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8892a4' }}>
+              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
                 Monthly Overview
               </h2>
             </div>
             <div className="px-3 pb-2">
               <MonthlyChart data={periodData} />
             </div>
-            <div style={{ borderTop: '1px solid #1e2a3a' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
               {periodData.filter(d => d.income > 0 || d.fixed > 0 || d.discretionary > 0).map((d, i) => (
                 <div
                   key={d.period.start}
                   className="flex items-center justify-between px-4 py-2"
-                  style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
+                  style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
                 >
-                  <span className="text-xs font-medium" style={{ color: '#8892a4' }}>
+                  <span className="text-xs font-medium" style={{ color: '#8899aa' }}>
                     {d.period.label}
                     <span className="ml-1 text-[9px]" style={{ color: '#4a5568' }}>
                       {d.period.start.slice(5).replace('-', '/')}–{d.period.end.slice(5).replace('-', '/')}
@@ -330,9 +330,9 @@ export default async function TrendsPage() {
           </section>
 
           {/* Section B — Category trends */}
-          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}>
+          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
             <div className="px-4 pt-4 pb-3">
-              <h2 className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#8892a4' }}>
+              <h2 className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#8899aa' }}>
                 Category Trends
               </h2>
               <p className="text-[10px]" style={{ color: '#4a5568' }}>
@@ -340,7 +340,7 @@ export default async function TrendsPage() {
               </p>
             </div>
             <CategoryTrends rows={catRows} prevLabel={prevPeriod.label} currLabel={currPeriod.label} />
-            <div className="px-4 py-3 flex gap-4 text-[10px]" style={{ borderTop: '1px solid #1e2a3a', color: '#4a5568' }}>
+            <div className="px-4 py-3 flex gap-4 text-[10px]" style={{ borderTop: '1px solid rgba(255,255,255,0.06)', color: '#4a5568' }}>
               <span style={{ color: '#FF4488' }}>▲ &gt;20% growth</span>
               <span style={{ color: '#00FF94' }}>▼ &gt;20% saving</span>
             </div>

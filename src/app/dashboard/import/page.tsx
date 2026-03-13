@@ -13,7 +13,7 @@ export default async function ImportPage() {
     .order('name')
 
   return (
-    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
+    <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
 
       {/* Top nav */}
       <TopNav />
@@ -21,7 +21,7 @@ export default async function ImportPage() {
       <main className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">Import Statement</h1>
-          <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
             Upload a bank statement CSV or PDF to import your transactions.
           </p>
         </div>
