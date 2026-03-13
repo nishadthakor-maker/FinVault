@@ -152,77 +152,76 @@ export default async function TrendsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // ── Pay-period aligned buckets (4 periods, oldest first) ──────────────────
-  const periods = getLast4PayPeriods()
-  const oldest  = periods[0]
-  const newest  = periods[periods.length - 1]
+  const periods    = getLast4PayPeriods()
+  const oldest     = periods[0]
+  const newest     = periods[periods.length - 1]
+  const prevPeriod = periods[periods.length - 2]
+  const currPeriod = periods[periods.length - 1]
 
-  // ── Fetch all tagged transactions covering the 4 periods ──────────────────
-  const { data: txRows } = await supabase
-    .from('transactions')
-    .select('date, tag, amount, category')
-    .eq('user_id', user.id)
-    .gte('date', oldest.start)
-    .lte('date', newest.end)
-    .not('tag', 'is', null)
-
-  const rows = txRows ?? []
-
-  // ── Build per-period summaries ─────────────────────────────────────────────
-  function periodRows(p: PayPeriod) {
-    return rows.filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end)
-  }
-
-  const periodData: PeriodSummary[] = periods.map(p => {
-    const pr = periodRows(p)
-    return {
-      period:        p,
-      income:        pr.filter(r => r.tag === 'Income').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
-      fixed:         pr.filter(r => r.tag === 'Fixed').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
-      discretionary: pr.filter(r => r.tag === 'Discretionary').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
-    }
-  })
-
-  // ── Category trends: period N-1 ("Feb") vs current ("Mar") ────────────────
-  const prevPeriod = periods[periods.length - 2]  // one period back
-  const currPeriod = periods[periods.length - 1]  // current
-
-  const allCats = Array.from(new Set(
-    rows
-      .filter(r => r.tag === 'Discretionary' && r.category)
-      .map(r => r.category as string)
-  )).sort()
-
-  function catTotal(p: PayPeriod, cat: string) {
-    return rows
-      .filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end
-                && r.tag === 'Discretionary' && r.category === cat)
-      .reduce((s, r) => s + Math.abs(Number(r.amount)), 0)
-  }
-
-  const catRows: CatRow[] = allCats
-    .map(cat => ({ category: cat, prev: catTotal(prevPeriod, cat), curr: catTotal(currPeriod, cat) }))
-    .filter(r => r.prev > 0 || r.curr > 0)
-    .sort((a, b) => b.prev - a.prev)
-
-  // ── AI Insight (24h cache) ────────────────────────────────────────────────
-  let insight: string | null = null
+  // ── Cache check FIRST — skips transaction query entirely on hit ────────────
+  let periodData: PeriodSummary[] = []
+  let catRows:    CatRow[]        = []
+  let insight:    string | null   = null
 
   try {
     const { data: cached } = await supabase
       .from('ai_insights')
-      .select('body')
+      .select('body, data')
       .eq('user_id', user.id)
       .eq('type', 'spending_pattern')
       .eq('title', 'trends_insight')
       .gt('expires_at', new Date().toISOString())
-      .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
 
-    if (cached?.body) {
-      insight = cached.body
+    if (cached?.body && cached?.data?.periodData && cached?.data?.catRows) {
+      // Full cache hit — serve everything from cache, no transaction query needed
+      insight    = cached.body as string
+      periodData = cached.data.periodData as PeriodSummary[]
+      catRows    = cached.data.catRows    as CatRow[]
     } else {
+      // ── Cache miss: fetch transactions and compute ────────────────────────
+      const { data: txRows } = await supabase
+        .from('transactions')
+        .select('date, tag, amount, category')
+        .eq('user_id', user.id)
+        .gte('date', oldest.start)
+        .lte('date', newest.end)
+        .not('tag', 'is', null)
+
+      const rows = txRows ?? []
+
+      function periodRows(p: PayPeriod) {
+        return rows.filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end)
+      }
+
+      periodData = periods.map(p => {
+        const pr = periodRows(p)
+        return {
+          period:        p,
+          income:        pr.filter(r => r.tag === 'Income').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+          fixed:         pr.filter(r => r.tag === 'Fixed').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+          discretionary: pr.filter(r => r.tag === 'Discretionary').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+        }
+      })
+
+      const allCats = Array.from(new Set(
+        rows.filter(r => r.tag === 'Discretionary' && r.category).map(r => r.category as string)
+      )).sort()
+
+      function catTotal(p: PayPeriod, cat: string) {
+        return rows
+          .filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end
+                    && r.tag === 'Discretionary' && r.category === cat)
+          .reduce((s, r) => s + Math.abs(Number(r.amount)), 0)
+      }
+
+      catRows = allCats
+        .map(cat => ({ category: cat, prev: catTotal(prevPeriod, cat), curr: catTotal(currPeriod, cat) }))
+        .filter(r => r.prev > 0 || r.curr > 0)
+        .sort((a, b) => b.prev - a.prev)
+
+      // ── Call Claude for insight ───────────────────────────────────────────
       const spendingCtx = periodData
         .map(d => `${d.period.label}: Income ${gbp(d.income)}, Fixed ${gbp(d.fixed)}, Discretionary ${gbp(d.discretionary)}, Net surplus ${gbp(d.income - d.fixed - d.discretionary)}`)
         .join('\n')
@@ -244,16 +243,26 @@ export default async function TrendsPage() {
       const textBlock = response.content.find(b => b.type === 'text')
       if (textBlock?.type === 'text') {
         insight = textBlock.text
+
+        // Delete previous rows (cleanup) then insert fresh
+        await supabase
+          .from('ai_insights')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('type', 'spending_pattern')
+          .eq('title', 'trends_insight')
+
         await supabase.from('ai_insights').insert({
           user_id:    user.id,
           type:       'spending_pattern',
           title:      'trends_insight',
           body:       insight,
+          data:       { periodData, catRows },
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         })
       }
     }
-  } catch { /* insight is optional */ }
+  } catch { /* insight and chart data degrade gracefully */ }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (

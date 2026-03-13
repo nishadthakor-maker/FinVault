@@ -1,5 +1,11 @@
 // Financial summary utility — computes the structured financial model
 // for a given pay period from all linked accounts.
+//
+// CACHING STRATEGY:
+//   Closed periods (end < today): cached forever in ai_insights (expires_at NULL)
+//   Current period (end >= today): cached for 24h in ai_insights
+//   Cache key: financial_summary_{start}_{end}  type: financial_summary
+//   Cache is invalidated after any import (time-limited rows deleted by import route)
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -52,6 +58,42 @@ export async function getFinancialSummary(
   start:    string,
   end:      string,
 ): Promise<FinancialSummary> {
+
+  const today       = new Date().toISOString().slice(0, 10)
+  const isClosedPeriod = end < today
+  const cacheTitle  = `financial_summary_${start}_${end}`
+
+  // ── 0. Cache check ───────────────────────────────────────────────────────────
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (user) {
+    let cacheQuery = supabase
+      .from('ai_insights')
+      .select('data')
+      .eq('user_id', user.id)
+      .eq('type', 'financial_summary')
+      .eq('title', cacheTitle)
+      .limit(1)
+      .maybeSingle()
+
+    // Current period: additionally require expires_at to be in the future
+    if (!isClosedPeriod) {
+      cacheQuery = supabase
+        .from('ai_insights')
+        .select('data')
+        .eq('user_id', user.id)
+        .eq('type', 'financial_summary')
+        .eq('title', cacheTitle)
+        .gt('expires_at', new Date().toISOString())
+        .limit(1)
+        .maybeSingle()
+    }
+
+    const { data: cached } = await cacheQuery
+    if (cached?.data?.summary) {
+      return cached.data.summary as FinancialSummary
+    }
+  }
 
   // ── 1. Account IDs ───────────────────────────────────────────────────────────
   const { data: accts } = await supabase.from('accounts').select('id, name')
@@ -177,7 +219,7 @@ export async function getFinancialSummary(
   const totalOut          = rentTotal + carFinanceTotal + fixedBillsTotal + directDiscretTotal + ccRepayTotal + savingsOut
   const cashFlowRemaining = salary + rewards - totalOut
 
-  return {
+  const result: FinancialSummary = {
     income: {
       salary,
       isBonus,
@@ -218,4 +260,29 @@ export async function getFinancialSummary(
       savingsRate:    salary > 0 ? (savingsOut - savingsIn) / salary : 0,
     },
   }
+
+  // ── 7. Write to cache ────────────────────────────────────────────────────────
+  if (user) {
+    // Delete any existing entry for this period before inserting fresh result
+    await supabase
+      .from('ai_insights')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('type', 'financial_summary')
+      .eq('title', cacheTitle)
+
+    await supabase.from('ai_insights').insert({
+      user_id:    user.id,
+      type:       'financial_summary',
+      title:      cacheTitle,
+      body:       'cached',
+      data:       { summary: result },
+      // Closed periods: NULL = never expires. Current period: 24h TTL.
+      expires_at: isClosedPeriod
+        ? null
+        : new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+    })
+  }
+
+  return result
 }

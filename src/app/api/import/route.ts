@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import Papa from 'papaparse'
 import Anthropic from '@anthropic-ai/sdk'
+import { getCurrentPayPeriod } from '@/lib/payPeriod'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -393,6 +394,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
 
     if (dbErr) errors.push(dbErr.message)
     else imported += data?.length ?? 0
+  }
+
+  // ── Invalidate time-limited caches after a successful import ─────────────
+  // Deletes current-period financial summary + trends insight so the next
+  // page load recomputes with the newly imported transactions.
+  // Historical period caches (expires_at IS NULL) are intentionally preserved.
+  if (imported > 0) {
+    const period = getCurrentPayPeriod()
+    await supabase
+      .from('ai_insights')
+      .delete()
+      .eq('user_id', user.id)
+      .not('expires_at', 'is', null)
+      .or(
+        `title.eq.trends_insight,title.eq.financial_summary_${period.start}_${period.end}`
+      )
   }
 
   return NextResponse.json({
