@@ -167,6 +167,10 @@ export async function getFinancialSummary(
   const ccGrandTotal     = barclaycardSpend + hsbcSpend + tescoSpend + nwCCSpend
 
   // ── 5. Bonus detection ───────────────────────────────────────────────────────
+  // Fetch last 5 salary entries (prior to this period) so we have enough
+  // data even if one or two were bonus months. Then exclude the single
+  // highest value before averaging — this prevents a past bonus from
+  // inflating the baseline. Requires at least 2 remaining values.
   let normalSalary = salary
   if (nwMainId) {
     const { data: hist } = await supabase
@@ -176,10 +180,12 @@ export async function getFinancialSummary(
       .eq('category', 'Salary')
       .lt('date', start)
       .order('date', { ascending: false })
-      .limit(3)
-    const amounts = (hist ?? []).map(t => Number(t.amount))
-    if (amounts.length >= 1) {
-      normalSalary = amounts.reduce((a, b) => a + b, 0) / amounts.length
+      .limit(5)
+    const amounts = (hist ?? []).map(t => Number(t.amount)).sort((a, b) => a - b)
+    // Remove the highest value to exclude any bonus months in the history
+    const baseline = amounts.length > 1 ? amounts.slice(0, -1) : amounts
+    if (baseline.length >= 1) {
+      normalSalary = baseline.reduce((a, b) => a + b, 0) / baseline.length
     }
   }
   const isBonus     = salary > normalSalary * 1.10
