@@ -15,11 +15,21 @@ export type ParsedTransaction = {
   category: string | null
 }
 
+export type NeedsReviewItem = {
+  date: string
+  description: string
+  amount: number
+  reason: string
+}
+
 type ImportResponse = {
   transactions: ParsedTransaction[]
   bank: string
   count: number
   imported?: number
+  duplicates_skipped?: number
+  needs_review?: NeedsReviewItem[]
+  total_in_file?: number
   errors?: string[]
 }
 
@@ -31,7 +41,6 @@ const MONTHS: Record<string, string> = {
 }
 
 function parseDMY(str: string): string | null {
-  // DD/MM/YYYY or DD/MM/YY
   const m = str.trim().match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/)
   if (!m) return null
   const [, d, mo, y] = m
@@ -40,7 +49,6 @@ function parseDMY(str: string): string | null {
 }
 
 function parseDMonY(str: string): string | null {
-  // DD Mon YY or DD Mon YYYY (e.g. "15 Mar 24" or "15 Mar 2024")
   const m = str.trim().match(/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{2,4})$/)
   if (!m) return null
   const [, d, mon, y] = m
@@ -58,17 +66,77 @@ function parseAmount(str: string): number {
   return parseFloat(str.replace(/[£,\s]/g, '').replace(/[()]/g, m => m === '(' ? '-' : ''))
 }
 
+// ─── Dedup helpers ────────────────────────────────────────────────────────────
+
+/** Lowercase, strip punctuation, collapse whitespace */
+function normalise(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Returns a similarity score 0–1 between two transaction descriptions.
+ * 1.0 = identical or one contains the other
+ * 0.85 = share 3+ consecutive words
+ * else = word-overlap ratio (words longer than 2 chars)
+ */
+function descSimilarity(a: string, b: string): number {
+  const na = normalise(a)
+  const nb = normalise(b)
+  if (na === nb) return 1.0
+  if (na.length > 0 && nb.length > 0 && (na.includes(nb) || nb.includes(na))) return 1.0
+
+  const wa = na.split(' ').filter(w => w.length > 0)
+  const wb = nb.split(' ').filter(w => w.length > 0)
+
+  // Check for 3+ consecutive words in common
+  if (wa.length >= 3 && wb.length >= 3) {
+    for (let i = 0; i <= wa.length - 3; i++) {
+      const trigram = wa.slice(i, i + 3).join(' ')
+      if (nb.includes(trigram)) return 0.85
+    }
+  }
+
+  // Word-overlap ratio (meaningful words only)
+  const setA = new Set(wa.filter(w => w.length > 2))
+  const setB = new Set(wb.filter(w => w.length > 2))
+  if (setA.size === 0 && setB.size === 0) return na === nb ? 1.0 : 0
+  if (setA.size === 0 || setB.size === 0) return 0
+
+  let shared = 0
+  for (const w of setA) if (setB.has(w)) shared++
+  return shared / Math.max(setA.size, setB.size)
+}
+
+type ExistingTx = { date: string; description: string; amount: number }
+type DedupResult =
+  | { action: 'insert' }
+  | { action: 'skip_exact' }
+  | { action: 'skip_fuzzy'; reason: string }
+
+function classify(incoming: ParsedTransaction, existing: ExistingTx[]): DedupResult {
+  // Only compare transactions on the same date with the same amount
+  const candidates = existing.filter(e =>
+    e.date === incoming.date &&
+    Math.abs(e.amount - incoming.amount) < 0.005
+  )
+
+  for (const c of candidates) {
+    const sim = descSimilarity(incoming.description, c.description)
+    if (sim >= 0.9) return { action: 'skip_exact' }
+    if (sim >= 0.6) return {
+      action: 'skip_fuzzy',
+      reason: `Possible duplicate of "${c.description}" (${Math.round(sim * 100)}% match)`,
+    }
+  }
+  return { action: 'insert' }
+}
+
 // ─── NatWest CSV ──────────────────────────────────────────────────────────────
-//
-// Format:
-//   Date,Type,Description,Value,Balance,Account Name,Account Number
-//   15/03/2024,DD,SPOTIFY UK,-9.99,1234.56,Current Account,60-01-01 12345678
 
 function parseNatWestCSV(text: string): ParsedTransaction[] {
   const { data, errors } = Papa.parse<string[]>(text.trim(), { skipEmptyLines: true })
   if (errors.length && !data.length) throw new Error('CSV parse failed')
 
-  // Find header row
   const headerIdx = data.findIndex(r =>
     r.some(c => c.toLowerCase().includes('date')) &&
     r.some(c => c.toLowerCase().includes('description'))
@@ -104,8 +172,6 @@ const CLAUDE_SYSTEM_PROMPT =
 async function parseWithClaude(buffer: Buffer): Promise<ParsedTransaction[]> {
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-  const base64 = buffer.toString('base64')
-
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 4096,
@@ -116,27 +182,17 @@ async function parseWithClaude(buffer: Buffer): Promise<ParsedTransaction[]> {
         content: [
           {
             type: 'document',
-            source: {
-              type: 'base64',
-              media_type: 'application/pdf',
-              data: base64,
-            },
+            source: { type: 'base64', media_type: 'application/pdf', data: buffer.toString('base64') },
           } as Anthropic.DocumentBlockParam,
-          {
-            type: 'text',
-            text: 'Extract all transactions from this bank statement.',
-          },
+          { type: 'text', text: 'Extract all transactions from this bank statement.' },
         ],
       },
     ],
   })
 
   const textBlock = message.content.find(b => b.type === 'text')
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Claude returned no text content')
-  }
+  if (!textBlock || textBlock.type !== 'text') throw new Error('Claude returned no text content')
 
-  // Strip markdown code fences if present
   const raw = textBlock.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '')
 
   let parsed: Array<{ date: string; description: string; amount: number; type?: string }>
@@ -145,10 +201,7 @@ async function parseWithClaude(buffer: Buffer): Promise<ParsedTransaction[]> {
   } catch {
     throw new Error(`Claude response is not valid JSON: ${raw.slice(0, 200)}`)
   }
-
-  if (!Array.isArray(parsed)) {
-    throw new Error('Claude response is not a JSON array')
-  }
+  if (!Array.isArray(parsed)) throw new Error('Claude response is not a JSON array')
 
   return parsed.flatMap((t): ParsedTransaction[] => {
     const date = t.date?.match(/^\d{4}-\d{2}-\d{2}$/) ? t.date : toISO(t.date ?? '')
@@ -156,14 +209,7 @@ async function parseWithClaude(buffer: Buffer): Promise<ParsedTransaction[]> {
     const amount = typeof t.amount === 'number' ? t.amount : parseAmount(String(t.amount ?? '0'))
     if (isNaN(amount)) return []
     const description = String(t.description ?? '').trim()
-    return [{
-      date,
-      description,
-      merchant_name: description,
-      amount,
-      type: amount >= 0 ? 'credit' : 'debit',
-      category: null,
-    }]
+    return [{ date, description, merchant_name: description, amount, type: amount >= 0 ? 'credit' : 'debit', category: null }]
   })
 }
 
@@ -185,41 +231,32 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorised' } as never, { status: 401 })
-  }
+  if (!user) return NextResponse.json({ error: 'Unauthorised' } as never, { status: 401 })
 
-  const formData = await request.formData()
-  const file       = formData.get('file') as File | null
-  const accountId  = formData.get('account_id') as string | null
-  const dryRun     = formData.get('dry_run') === 'true'
+  const formData  = await request.formData()
+  const file      = formData.get('file') as File | null
+  const accountId = formData.get('account_id') as string | null
+  const dryRun    = formData.get('dry_run') === 'true'
 
-  if (!file) return NextResponse.json({ error: 'No file provided' } as never, { status: 400 })
+  if (!file)      return NextResponse.json({ error: 'No file provided' } as never, { status: 400 })
   if (!accountId) return NextResponse.json({ error: 'No account_id provided' } as never, { status: 400 })
 
-  // Verify account belongs to this user
   const { data: account } = await supabase
-    .from('accounts')
-    .select('id')
-    .eq('id', accountId)
-    .eq('user_id', user.id)
-    .single()
-
+    .from('accounts').select('id')
+    .eq('id', accountId).eq('user_id', user.id).single()
   if (!account) return NextResponse.json({ error: 'Account not found' } as never, { status: 404 })
 
-  // Parse
+  // ── Parse file ────────────────────────────────────────────────────────────
   let transactions: ParsedTransaction[] = []
   let bank = 'unknown'
 
   try {
     if (file.name.toLowerCase().endsWith('.csv')) {
-      const text = await file.text()
+      transactions = parseNatWestCSV(await file.text())
       bank = 'natwest-csv'
-      transactions = parseNatWestCSV(text)
     } else {
-      const buffer = Buffer.from(await file.arrayBuffer())
+      transactions = await parseWithClaude(Buffer.from(await file.arrayBuffer()))
       bank = 'claude-pdf'
-      transactions = await parseWithClaude(buffer)
     }
   } catch (err) {
     return NextResponse.json({ error: `Parse error: ${String(err)}` } as never, { status: 422 })
@@ -230,11 +267,45 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
   }
 
   if (dryRun) {
-    return NextResponse.json({ transactions, bank, count: transactions.length })
+    return NextResponse.json({ transactions, bank, count: transactions.length, total_in_file: transactions.length })
   }
 
-  // Insert into DB (upsert on date+description+amount to avoid duplicates)
-  const rows = transactions.map(t => ({
+  // ── Dedup: fetch existing transactions covering the statement's date range ─
+  const sortedDates = transactions.map(t => t.date).sort()
+  const rangeStart  = sortedDates[0]
+  const rangeEnd    = sortedDates[sortedDates.length - 1]
+
+  const { data: existingRows } = await supabase
+    .from('transactions')
+    .select('date, description, amount')
+    .eq('account_id', accountId)
+    .gte('date', rangeStart)
+    .lte('date', rangeEnd)
+
+  const existing: ExistingTx[] = (existingRows ?? []).map(r => ({
+    date: r.date as string,
+    description: r.description as string,
+    amount: Number(r.amount),
+  }))
+
+  // ── Classify each incoming transaction ────────────────────────────────────
+  const toInsert:   ParsedTransaction[] = []
+  const needsReview: NeedsReviewItem[]  = []
+  let duplicatesSkipped = 0
+
+  for (const tx of transactions) {
+    const result = classify(tx, existing)
+    if (result.action === 'skip_exact') {
+      duplicatesSkipped++
+    } else if (result.action === 'skip_fuzzy') {
+      needsReview.push({ date: tx.date, description: tx.description, amount: tx.amount, reason: result.reason })
+    } else {
+      toInsert.push(tx)
+    }
+  }
+
+  // ── Insert clean rows ─────────────────────────────────────────────────────
+  const rows = toInsert.map(t => ({
     user_id:       user.id,
     account_id:    accountId,
     date:          t.date,
@@ -248,19 +319,24 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
   const errors: string[] = []
   let imported = 0
 
-  // Batch insert in chunks of 100
   for (let i = 0; i < rows.length; i += 100) {
     const { error: dbErr, data } = await supabase
       .from('transactions')
       .insert(rows.slice(i, i + 100))
       .select('id')
 
-    if (dbErr) {
-      errors.push(dbErr.message)
-    } else {
-      imported += data?.length ?? 0
-    }
+    if (dbErr) errors.push(dbErr.message)
+    else imported += data?.length ?? 0
   }
 
-  return NextResponse.json({ transactions, bank, count: transactions.length, imported, errors })
+  return NextResponse.json({
+    transactions,
+    bank,
+    count: transactions.length,
+    total_in_file: transactions.length,
+    imported,
+    duplicates_skipped: duplicatesSkipped,
+    needs_review: needsReview,
+    errors,
+  })
 }

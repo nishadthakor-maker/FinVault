@@ -1,8 +1,8 @@
 'use client'
 
 import { useRef, useState, useCallback } from 'react'
-import { Upload, FileText, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight } from 'lucide-react'
-import type { ParsedTransaction } from '@/app/api/import/route'
+import { Upload, FileText, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ChevronDown, ChevronRight } from 'lucide-react'
+import type { ParsedTransaction, NeedsReviewItem } from '@/app/api/import/route'
 
 type Account = { id: string; name: string; type: string }
 
@@ -31,9 +31,12 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
   const [accountId, setAccountId] = useState(accounts[0]?.id ?? '')
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState<string | null>(null)
-  const [bank, setBank]           = useState('')
-  const [preview, setPreview]     = useState<ParsedTransaction[]>([])
-  const [imported, setImported]   = useState(0)
+  const [bank, setBank]                     = useState('')
+  const [preview, setPreview]               = useState<ParsedTransaction[]>([])
+  const [imported, setImported]             = useState(0)
+  const [duplicatesSkipped, setDuplicatesSkipped] = useState(0)
+  const [needsReview, setNeedsReview]       = useState<NeedsReviewItem[]>([])
+  const [reviewOpen, setReviewOpen]         = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // ── Drag-and-drop handlers ────────────────────────────────────────────────
@@ -95,6 +98,8 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
       setStep('error')
     } else {
       setImported(json.imported ?? 0)
+      setDuplicatesSkipped(json.duplicates_skipped ?? 0)
+      setNeedsReview(json.needs_review ?? [])
       setStep('done')
     }
   }
@@ -106,6 +111,9 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
     setBank('')
     setError(null)
     setImported(0)
+    setDuplicatesSkipped(0)
+    setNeedsReview([])
+    setReviewOpen(false)
   }
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -128,21 +136,100 @@ export function ImportClient({ accounts }: { accounts: Account[] }) {
   if (step === 'done') {
     return (
       <div
-        className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
+        className="rounded-2xl px-6 py-10"
         style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
       >
-        <CheckCircle2 size={40} className="mb-4" style={{ color: '#00FF94' }} />
-        <h2 className="text-xl font-semibold mb-1">Import complete</h2>
-        <p className="text-sm mb-6" style={{ color: '#8892a4' }}>
-          {imported} transaction{imported !== 1 ? 's' : ''} imported successfully.
-        </p>
-        <button
-          onClick={reset}
-          className="rounded-xl px-6 py-2.5 text-sm font-semibold"
-          style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a', color: '#00D4FF' }}
-        >
-          Import another file
-        </button>
+        <div className="flex flex-col items-center mb-6">
+          <CheckCircle2 size={40} className="mb-3" style={{ color: '#00FF94' }} />
+          <h2 className="text-xl font-semibold">Import complete</h2>
+        </div>
+
+        <div className="space-y-2 mb-8">
+          {/* Imported */}
+          <div
+            className="flex items-center gap-3 rounded-xl px-4 py-3"
+            style={{ backgroundColor: '#00FF9410', border: '1px solid #00FF9430' }}
+          >
+            <CheckCircle2 size={16} style={{ color: '#00FF94', flexShrink: 0 }} />
+            <span className="text-sm font-medium" style={{ color: '#00FF94' }}>
+              {imported} transaction{imported !== 1 ? 's' : ''} imported
+            </span>
+          </div>
+
+          {/* Needs review */}
+          {needsReview.length > 0 && (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{ border: '1px solid #F59E0B40' }}
+            >
+              <button
+                onClick={() => setReviewOpen(o => !o)}
+                className="w-full flex items-center gap-3 px-4 py-3"
+                style={{ backgroundColor: '#F59E0B10' }}
+              >
+                <AlertCircle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                <span className="text-sm font-medium flex-1 text-left" style={{ color: '#F59E0B' }}>
+                  {needsReview.length} transaction{needsReview.length !== 1 ? 's' : ''} need your review
+                </span>
+                {reviewOpen
+                  ? <ChevronDown size={14} style={{ color: '#F59E0B' }} />
+                  : <ChevronRight size={14} style={{ color: '#F59E0B' }} />}
+              </button>
+              {reviewOpen && (
+                <div style={{ backgroundColor: '#0d1117' }}>
+                  {needsReview.map((item, i) => (
+                    <div
+                      key={i}
+                      className="px-4 py-2.5"
+                      style={{ borderTop: '1px solid #1e2a3a' }}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium truncate">{item.description}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: '#F59E0B' }}>{item.reason}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p
+                            className="text-xs font-semibold"
+                            style={{ color: item.amount >= 0 ? '#00FF94' : '#f0f4f8', fontFamily: 'var(--font-dm-mono)' }}
+                          >
+                            {item.amount >= 0 ? '+' : '-'}{fmt(item.amount)}
+                          </p>
+                          <p className="text-[10px]" style={{ color: '#4a5568' }}>
+                            {dateLabel(item.date)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Duplicates skipped */}
+          {duplicatesSkipped > 0 && (
+            <div
+              className="flex items-center gap-3 rounded-xl px-4 py-3"
+              style={{ backgroundColor: '#4a556810', border: '1px solid #4a556840' }}
+            >
+              <X size={16} style={{ color: '#4a5568', flexShrink: 0 }} />
+              <span className="text-sm font-medium" style={{ color: '#4a5568' }}>
+                {duplicatesSkipped} duplicate{duplicatesSkipped !== 1 ? 's' : ''} skipped
+              </span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex justify-center">
+          <button
+            onClick={reset}
+            className="rounded-xl px-6 py-2.5 text-sm font-semibold"
+            style={{ backgroundColor: '#0d1117', border: '1px solid #1e2a3a', color: '#00D4FF' }}
+          >
+            Import another file
+          </button>
+        </div>
       </div>
     )
   }
