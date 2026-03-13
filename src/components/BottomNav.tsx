@@ -2,14 +2,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, ArrowLeftRight, PiggyBank, Wallet, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Upload, CreditCard, TrendingUp } from 'lucide-react'
 
 const navItems = [
-  { href: '/',             label: 'Dashboard',    icon: LayoutDashboard },
-  { href: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
-  { href: '/pots',         label: 'Pots',         icon: PiggyBank },
-  { href: '/budgets',      label: 'Budgets',      icon: Wallet },
-  { href: '/insights',     label: 'Insights',     icon: Sparkles },
+  { href: '/',                   label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/import',   label: 'Import',    icon: Upload },
+  { href: '/dashboard/accounts', label: 'Accounts',  icon: CreditCard },
+  { href: '/dashboard/pl',       label: 'P&L',       icon: TrendingUp },
 ]
 
 export function BottomNav() {
@@ -22,7 +21,7 @@ export function BottomNav() {
     >
       <ul className="flex items-center justify-around px-2 py-2 pb-safe">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href
+          const active = pathname === href || (href !== '/' && pathname.startsWith(href))
           return (
             <li key={href}>
               <Link

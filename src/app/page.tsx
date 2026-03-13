@@ -1,9 +1,8 @@
-import { SignOutButton } from '@/components/SignOutButton'
+import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  RefreshCw,
 } from 'lucide-react'
 
 // ─── Placeholder data ────────────────────────────────────────────────────────
@@ -85,15 +84,7 @@ export default function DashboardPage() {
     <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
 
       {/* ── Top nav ── */}
-      <header
-        className="sticky top-0 z-30 flex items-center justify-between px-4 py-4 md:px-8"
-        style={{ backgroundColor: '#0d1117', borderBottom: '1px solid #1e2a3a' }}
-      >
-        <span className="text-xl font-bold tracking-tight" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-sans)' }}>
-          FinVault
-        </span>
-        <SignOutButton />
-      </header>
+      <TopNav />
 
       {/* ── Main content ── */}
       <main className="mx-auto w-full max-w-4xl px-4 pt-6 md:px-8">
