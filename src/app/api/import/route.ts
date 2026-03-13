@@ -66,6 +66,72 @@ function parseAmount(str: string): number {
   return parseFloat(str.replace(/[£,\s]/g, '').replace(/[()]/g, m => m === '(' ? '-' : ''))
 }
 
+// ─── Auto-tagger ──────────────────────────────────────────────────────────────
+
+type AutoTagResult = { tag: string | null; category: string | null; transfer_flag: boolean }
+
+function autoTag(description: string): AutoTagResult {
+  const d = description.toUpperCase()
+
+  // ── Income ──────────────────────────────────────────────────────────────────
+  if (d.includes('PAYROLL') || d.includes('SALARY'))
+    return { tag: 'Income', category: 'Salary', transfer_flag: false }
+  if (d.includes('GROCERYINTEL') || d.includes('GROCERY INTEL'))
+    return { tag: 'Income', category: 'Business Income', transfer_flag: false }
+  if (d.includes('THAKER') && !d.includes('N AND P THAKER') && !d.includes('N & P THAKER'))
+    return { tag: 'Income', category: 'Business Income', transfer_flag: false }
+
+  // ── Transfers ────────────────────────────────────────────────────────────────
+  if (d.includes('CHASE'))
+    return { tag: 'Transfer', category: 'Savings Transfer', transfer_flag: true }
+  if (d.includes('ACC-NWBNECTAR2') || d.includes('NWBNECTAR'))
+    return { tag: 'Transfer', category: 'Savings Transfer', transfer_flag: true }
+  if (d.includes('N AND P THAKOR') || d.includes('N & P THAKOR'))
+    return { tag: 'Transfer', category: 'Family Transfer', transfer_flag: true }
+  if (d.includes('NISHAD'))
+    return { tag: 'Transfer', category: 'Savings Transfer', transfer_flag: true }
+  if (d.includes('CLC'))
+    return { tag: 'Transfer', category: 'Transfer', transfer_flag: true }
+  if (d.includes('TO A/C') || d.includes('FROM A/C'))
+    return { tag: 'Transfer', category: 'Transfer', transfer_flag: true }
+  if (d.includes('BARCLAYCARD') || d.includes('BCARD'))
+    return { tag: 'Transfer', category: 'Transfer', transfer_flag: true }
+
+  // ── Fixed ────────────────────────────────────────────────────────────────────
+  if (d.includes('RENT'))
+    return { tag: 'Fixed', category: 'Rent', transfer_flag: false }
+  if (d.includes('COUNCIL TAX') || d.includes('COUNCILTAX'))
+    return { tag: 'Fixed', category: 'Council Tax', transfer_flag: false }
+  if (d.includes('BRITISH GAS') || d.includes('OVO ') || d.includes('OCTOPUS') || d.includes('BULB'))
+    return { tag: 'Fixed', category: 'Energy', transfer_flag: false }
+  if (d.includes('BROADBAND') || d.includes('VIRGIN MEDIA') || d.includes('OPENREACH'))
+    return { tag: 'Fixed', category: 'Broadband', transfer_flag: false }
+  if (d.includes('VODAFONE') || d.includes('GIFFGAFF') || d.includes('EE LTD') || d.includes('THREE'))
+    return { tag: 'Fixed', category: 'Mobile', transfer_flag: false }
+  if (d.includes('INSURANCE') || d.includes('AVIVA') || d.includes('ADMIRAL') || d.includes('HASTINGS'))
+    return { tag: 'Fixed', category: 'Insurance', transfer_flag: false }
+  if (d.includes('CAR FINANCE') || d.includes('VOLKSWAGEN') || d.includes('BMW FINANCIAL'))
+    return { tag: 'Fixed', category: 'Car Finance', transfer_flag: false }
+  if (d.includes('NETFLIX') || d.includes('SPOTIFY') || d.includes('DISNEY') || d.includes('NOW TV') || d.includes('PRIME VIDEO'))
+    return { tag: 'Fixed', category: 'TV & News', transfer_flag: false }
+
+  // ── Discretionary ────────────────────────────────────────────────────────────
+  if (d.includes('TESCO') || d.includes('SAINSBURY') || d.includes('ASDA') || d.includes('MORRISONS') || d.includes('ALDI') || d.includes('LIDL') || d.includes('WAITROSE') || d.includes('CO-OP'))
+    return { tag: 'Discretionary', category: 'Groceries', transfer_flag: false }
+  if (d.includes('PETROL') || d.includes('FUEL') || d.includes('BP ') || d.includes('SHELL') || d.includes('ESSO') || d.includes('TEXACO'))
+    return { tag: 'Discretionary', category: 'Fuel', transfer_flag: false }
+  if (d.includes('PARKING') || d.includes('CAR PARK') || d.includes('NCP '))
+    return { tag: 'Discretionary', category: 'Parking', transfer_flag: false }
+  if (d.includes('RESTAURANT') || d.includes('CAFE') || d.includes('COFFEE') || d.includes('MCDONALD') || d.includes('SUBWAY') || d.includes('PIZZA') || d.includes('NANDO'))
+    return { tag: 'Discretionary', category: 'Dining Out', transfer_flag: false }
+  if (d.includes('AMAZON') || d.includes('EBAY'))
+    return { tag: 'Discretionary', category: 'Other', transfer_flag: false }
+  if (d.includes('TRAIN') || d.includes('RAIL') || d.includes('TFL') || d.includes('BUS ') || d.includes('UBER'))
+    return { tag: 'Discretionary', category: 'Transport', transfer_flag: false }
+
+  return { tag: null, category: null, transfer_flag: false }
+}
+
 // ─── Dedup helpers ────────────────────────────────────────────────────────────
 
 /** Lowercase, strip punctuation, collapse whitespace */
@@ -150,14 +216,7 @@ function parseNatWestCSV(text: string): ParsedTransaction[] {
     const description = row[2]?.trim() ?? ''
     const amount = parseAmount(row[3] ?? '0')
     if (isNaN(amount)) return []
-    return [{
-      date,
-      description,
-      merchant_name: description,
-      amount,
-      type: amount >= 0 ? 'credit' : 'debit',
-      category: null,
-    }]
+    return [{ date, description, merchant_name: description, amount, type: amount >= 0 ? 'credit' : 'debit', category: null }]
   })
 }
 
@@ -289,8 +348,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
   }))
 
   // ── Classify each incoming transaction ────────────────────────────────────
-  const toInsert:   ParsedTransaction[] = []
-  const needsReview: NeedsReviewItem[]  = []
+  const toInsert:    ParsedTransaction[] = []
+  const needsReview: NeedsReviewItem[]   = []
   let duplicatesSkipped = 0
 
   for (const tx of transactions) {
@@ -304,17 +363,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<ImportRes
     }
   }
 
-  // ── Insert clean rows ─────────────────────────────────────────────────────
-  const rows = toInsert.map(t => ({
-    user_id:       user.id,
-    account_id:    accountId,
-    date:          t.date,
-    description:   t.description,
-    merchant_name: t.merchant_name,
-    amount:        t.amount,
-    type:          t.type,
-    category:      t.category,
-  }))
+  // ── Insert rows with auto-tagging ─────────────────────────────────────────
+  const rows = toInsert.map(t => {
+    const tagged = autoTag(t.description)
+    return {
+      user_id:       user.id,
+      account_id:    accountId,
+      date:          t.date,
+      description:   t.description,
+      merchant_name: t.merchant_name,
+      amount:        t.amount,
+      type:          t.type,
+      category:      tagged.category ?? t.category,
+      tag:           tagged.tag,
+      transfer_flag: tagged.transfer_flag,
+    }
+  })
 
   const errors: string[] = []
   let imported = 0
