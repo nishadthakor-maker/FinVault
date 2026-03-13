@@ -3,14 +3,9 @@ import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
 import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
+import { getCurrentPayPeriod, getNextPayday } from '@/lib/payPeriod'
 
 export const dynamic = 'force-dynamic'
-
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-const PERIOD_START = '2026-02-20'
-const PERIOD_END   = '2026-03-19'
-const PAYDAY       = new Date('2026-03-20T00:00:00')
 
 function gbp(n: number) {
   return Math.abs(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
@@ -53,6 +48,8 @@ function txIcon(category: string | null, type: string): string {
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
+  const period      = getCurrentPayPeriod()
+  const nextPayday  = getNextPayday()
 
   // ── Fetch in parallel ──────────────────────────────────────────────────────
   const [accountsRes, periodRes, recentRes] = await Promise.all([
@@ -64,8 +61,8 @@ export default async function DashboardPage() {
     supabase
       .from('transactions')
       .select('amount, tag, type, transfer_flag')
-      .gte('date', PERIOD_START)
-      .lte('date', PERIOD_END),
+      .gte('date', period.start)
+      .lte('date', period.end),
 
     supabase
       .from('transactions')
@@ -86,14 +83,14 @@ export default async function DashboardPage() {
   const netWorth = checkingTotal - creditTotal
 
   // ── Pay period totals ──────────────────────────────────────────────────────
-  const period = periodRes.data ?? []
-  const totalIncome = period
+  const periodTxs = periodRes.data ?? []
+  const totalIncome = periodTxs
     .filter(t => t.tag === 'Income')
     .reduce((s, t) => s + Number(t.amount), 0)
-  const fixedCosts = period
+  const fixedCosts = periodTxs
     .filter(t => t.tag === 'Fixed')
     .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
-  const discretionary = period
+  const discretionary = periodTxs
     .filter(t => t.tag === 'Discretionary')
     .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
 
@@ -103,7 +100,7 @@ export default async function DashboardPage() {
   // ── Days to payday ─────────────────────────────────────────────────────────
   const now = new Date()
   now.setHours(0, 0, 0, 0)
-  const daysToPayday = Math.max(0, Math.ceil((PAYDAY.getTime() - now.getTime()) / 86400000))
+  const daysToPayday = Math.max(0, Math.ceil((nextPayday.getTime() - now.getTime()) / 86400000))
 
   // ── Summary cards ─────────────────────────────────────────────────────────
   const cards = [
@@ -116,7 +113,7 @@ export default async function DashboardPage() {
     {
       label: 'Safe to Spend',
       value: (safeToSpend < 0 ? '-' : '') + gbp(safeToSpend),
-      sub: 'Payday 20 Mar 2026',
+      sub: `Payday ${nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
       color: safeToSpend >= 0 ? '#00D4FF' : '#FF4488',
     },
     {
@@ -128,7 +125,7 @@ export default async function DashboardPage() {
     {
       label: 'Days to Payday',
       value: String(daysToPayday),
-      sub: '20th March 2026',
+      sub: nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
       color: '#A78BFA',
     },
   ]

@@ -3,6 +3,7 @@ import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
 import { TrendingUp, TrendingDown, Minus, Sparkles } from 'lucide-react'
 import Anthropic from '@anthropic-ai/sdk'
+import { getLast4PayPeriods, type PayPeriod } from '@/lib/payPeriod'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,50 +20,42 @@ function niceMax(val: number): number {
 
 function fmtTick(val: number): string {
   if (val === 0) return '£0'
-  if (val >= 1000) return `£${(val / 1000 % 1 === 0 ? val / 1000 : (val / 1000).toFixed(1))}k`
+  if (val >= 1000) return `£${val / 1000 % 1 === 0 ? val / 1000 : (val / 1000).toFixed(1)}k`
   return `£${val}`
-}
-
-const MONTH_LABELS: Record<string, string> = {
-  '2025-10': 'Oct', '2025-11': 'Nov', '2025-12': 'Dec',
-  '2026-01': 'Jan', '2026-02': 'Feb', '2026-03': 'Mar',
-  '2026-04': 'Apr',
 }
 
 // ─── SVG Bar Chart ────────────────────────────────────────────────────────────
 
-type MonthSummary = { key: string; label: string; income: number; fixed: number; discretionary: number }
+type PeriodSummary = { period: PayPeriod; income: number; fixed: number; discretionary: number }
 
-function MonthlyChart({ data }: { data: MonthSummary[] }) {
+function MonthlyChart({ data }: { data: PeriodSummary[] }) {
   const W = 500, H = 260
   const ml = 54, mr = 8, mt = 16, mb = 52
   const chartW = W - ml - mr
   const chartH = H - mt - mb
 
-  const maxVal = Math.max(...data.flatMap(d => [d.income, d.fixed, d.discretionary]), 500)
+  const maxVal  = Math.max(...data.flatMap(d => [d.income, d.fixed, d.discretionary]), 500)
   const ceiling = niceMax(maxVal)
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(ceiling * f))
+  const ticks   = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(ceiling * f))
 
-  const numGroups = data.length
-  const groupW    = chartW / numGroups
-  const barW      = Math.min(22, (groupW - 24) / 3)
-  const gap       = 3
+  const groupW     = chartW / data.length
+  const barW       = Math.min(22, (groupW - 24) / 3)
+  const gap        = 3
   const groupInner = 3 * barW + 2 * gap
-  const groupOffset = (groupW - groupInner) / 2
+  const groupOff   = (groupW - groupInner) / 2
 
-  const bx = (gi: number, bi: number) => ml + gi * groupW + groupOffset + bi * (barW + gap)
-  const bh = (val: number)  => (val / ceiling) * chartH
-  const by = (val: number)  => mt + chartH - bh(val)
+  const bx = (gi: number, bi: number) => ml + gi * groupW + groupOff + bi * (barW + gap)
+  const bh = (v: number) => (v / ceiling) * chartH
+  const by = (v: number) => mt + chartH - bh(v)
 
   const BARS = [
-    { key: 'income',        color: '#00FF94' },
-    { key: 'fixed',         color: '#A78BFA' },
-    { key: 'discretionary', color: '#00D4FF' },
-  ] as const
+    { key: 'income'        as const, color: '#00FF94' },
+    { key: 'fixed'         as const, color: '#A78BFA' },
+    { key: 'discretionary' as const, color: '#00D4FF' },
+  ]
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ overflow: 'visible' }}>
-      {/* Grid lines + y-labels */}
       {ticks.map(tick => {
         const y = mt + chartH - (tick / ceiling) * chartH
         return (
@@ -75,40 +68,19 @@ function MonthlyChart({ data }: { data: MonthSummary[] }) {
         )
       })}
 
-      {/* Bars */}
       {data.map((d, gi) => (
-        <g key={d.key}>
+        <g key={d.period.start}>
           {BARS.map(({ key, color }, bi) => {
-            const val = d[key]
-            const h   = bh(val)
+            const h = bh(d[key])
             if (h < 1) return null
-            return (
-              <rect
-                key={key}
-                x={bx(gi, bi)}
-                y={by(val)}
-                width={barW}
-                height={h}
-                fill={color}
-                rx={2}
-                opacity={0.9}
-              />
-            )
+            return <rect key={key} x={bx(gi, bi)} y={by(d[key])} width={barW} height={h} fill={color} rx={2} opacity={0.9} />
           })}
-          {/* Month label */}
-          <text
-            x={ml + gi * groupW + groupW / 2}
-            y={mt + chartH + 14}
-            textAnchor="middle"
-            fontSize={10}
-            fill="#8892a4"
-          >
-            {d.label}
+          <text x={ml + gi * groupW + groupW / 2} y={mt + chartH + 14} textAnchor="middle" fontSize={10} fill="#8892a4">
+            {d.period.label}
           </text>
         </g>
       ))}
 
-      {/* Legend */}
       {[
         { label: 'Income',        color: '#00FF94' },
         { label: 'Fixed',         color: '#A78BFA' },
@@ -134,14 +106,13 @@ function CategoryTrends({ rows, prevLabel, currLabel }: { rows: CatRow[]; prevLa
 
   return (
     <div>
-      {/* Header */}
       <div className="grid grid-cols-4 px-4 pb-2" style={{ borderBottom: '1px solid #1e2a3a' }}>
         <span className="text-xs col-span-2" style={{ color: '#4a5568' }}>Category</span>
         <span className="text-xs text-right" style={{ color: '#4a5568' }}>{prevLabel}</span>
         <span className="text-xs text-right" style={{ color: '#4a5568' }}>{currLabel}</span>
       </div>
       {rows.map((row, i) => {
-        const pct = row.prev > 0 ? ((row.curr - row.prev) / row.prev) * 100 : null
+        const pct    = row.prev > 0 ? ((row.curr - row.prev) / row.prev) * 100 : null
         const grew   = pct !== null && pct > 20
         const shrank = pct !== null && pct < -20
         const color  = grew ? '#FF4488' : shrank ? '#00FF94' : '#f0f4f8'
@@ -155,26 +126,16 @@ function CategoryTrends({ rows, prevLabel, currLabel }: { rows: CatRow[]; prevLa
             <div className="col-span-2 flex items-center gap-2 min-w-0">
               <span className="text-sm font-medium truncate" style={{ color }}>{row.category}</span>
               {pct !== null && (
-                <span className="text-[10px] shrink-0" style={{ color }}>
-                  {grew
-                    ? <TrendingUp size={11} style={{ display: 'inline' }} />
-                    : shrank
-                      ? <TrendingDown size={11} style={{ display: 'inline' }} />
-                      : <Minus size={11} style={{ display: 'inline' }} />}
-                  {' '}{pct > 0 ? '+' : ''}{pct.toFixed(0)}%
+                <span className="text-[10px] shrink-0 flex items-center gap-0.5" style={{ color }}>
+                  {grew ? <TrendingUp size={11} /> : shrank ? <TrendingDown size={11} /> : <Minus size={11} />}
+                  {pct > 0 ? '+' : ''}{pct.toFixed(0)}%
                 </span>
               )}
             </div>
-            <span
-              className="text-xs text-right"
-              style={{ color: '#8892a4', fontFamily: 'var(--font-dm-mono)' }}
-            >
+            <span className="text-xs text-right" style={{ color: '#8892a4', fontFamily: 'var(--font-dm-mono)' }}>
               {row.prev > 0 ? gbp(row.prev) : '—'}
             </span>
-            <span
-              className="text-xs text-right font-semibold"
-              style={{ color, fontFamily: 'var(--font-dm-mono)' }}
-            >
+            <span className="text-xs text-right font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
               {row.curr > 0 ? gbp(row.curr) : '—'}
             </span>
           </div>
@@ -191,57 +152,63 @@ export default async function TrendsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  // ── Query last 4 months of tagged transactions ─────────────────────────────
-  const { data: monthlyRows } = await supabase
+  // ── Pay-period aligned buckets (4 periods, oldest first) ──────────────────
+  const periods = getLast4PayPeriods()
+  const oldest  = periods[0]
+  const newest  = periods[periods.length - 1]
+
+  // ── Fetch all tagged transactions covering the 4 periods ──────────────────
+  const { data: txRows } = await supabase
     .from('transactions')
     .select('date, tag, amount, category')
     .eq('user_id', user.id)
-    .gte('date', '2025-12-01')
-    .lte('date', '2026-03-31')
+    .gte('date', oldest.start)
+    .lte('date', newest.end)
     .not('tag', 'is', null)
 
-  // ── Build monthly summaries ────────────────────────────────────────────────
-  const MONTHS = ['2025-12', '2026-01', '2026-02', '2026-03']
+  const rows = txRows ?? []
 
-  const monthlyData: MonthSummary[] = MONTHS.map(key => {
-    const rows = (monthlyRows ?? []).filter(r => (r.date as string).startsWith(key))
+  // ── Build per-period summaries ─────────────────────────────────────────────
+  function periodRows(p: PayPeriod) {
+    return rows.filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end)
+  }
+
+  const periodData: PeriodSummary[] = periods.map(p => {
+    const pr = periodRows(p)
     return {
-      key,
-      label: MONTH_LABELS[key] ?? key,
-      income:        rows.filter(r => r.tag === 'Income').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
-      fixed:         rows.filter(r => r.tag === 'Fixed').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
-      discretionary: rows.filter(r => r.tag === 'Discretionary').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+      period:        p,
+      income:        pr.filter(r => r.tag === 'Income').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+      fixed:         pr.filter(r => r.tag === 'Fixed').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
+      discretionary: pr.filter(r => r.tag === 'Discretionary').reduce((s, r) => s + Math.abs(Number(r.amount)), 0),
     }
   })
 
-  // ── Category trends: Feb vs Mar ────────────────────────────────────────────
-  const prevKey = '2026-02'
-  const currKey = '2026-03'
+  // ── Category trends: period N-1 ("Feb") vs current ("Mar") ────────────────
+  const prevPeriod = periods[periods.length - 2]  // one period back
+  const currPeriod = periods[periods.length - 1]  // current
 
-  const allCategories = Array.from(new Set(
-    (monthlyRows ?? [])
+  const allCats = Array.from(new Set(
+    rows
       .filter(r => r.tag === 'Discretionary' && r.category)
       .map(r => r.category as string)
   )).sort()
 
-  function catTotal(monthKey: string, cat: string) {
-    return (monthlyRows ?? [])
-      .filter(r => (r.date as string).startsWith(monthKey) && r.tag === 'Discretionary' && r.category === cat)
+  function catTotal(p: PayPeriod, cat: string) {
+    return rows
+      .filter(r => (r.date as string) >= p.start && (r.date as string) <= p.end
+                && r.tag === 'Discretionary' && r.category === cat)
       .reduce((s, r) => s + Math.abs(Number(r.amount)), 0)
   }
 
-  const catRows: CatRow[] = allCategories.map(cat => ({
-    category: cat,
-    prev: catTotal(prevKey, cat),
-    curr: catTotal(currKey, cat),
-  })).filter(r => r.prev > 0 || r.curr > 0)
+  const catRows: CatRow[] = allCats
+    .map(cat => ({ category: cat, prev: catTotal(prevPeriod, cat), curr: catTotal(currPeriod, cat) }))
+    .filter(r => r.prev > 0 || r.curr > 0)
     .sort((a, b) => b.prev - a.prev)
 
   // ── AI Insight (24h cache) ────────────────────────────────────────────────
   let insight: string | null = null
 
   try {
-    // Check cache
     const { data: cached } = await supabase
       .from('ai_insights')
       .select('body')
@@ -256,35 +223,27 @@ export default async function TrendsPage() {
     if (cached?.body) {
       insight = cached.body
     } else {
-      // Build context for Claude
-      const spendingCtx = monthlyData
-        .map(m => `${m.label} 2026: Income ${gbp(m.income)}, Fixed costs ${gbp(m.fixed)}, Discretionary ${gbp(m.discretionary)}`)
+      const spendingCtx = periodData
+        .map(d => `${d.period.label}: Income ${gbp(d.income)}, Fixed ${gbp(d.fixed)}, Discretionary ${gbp(d.discretionary)}, Net surplus ${gbp(d.income - d.fixed - d.discretionary)}`)
         .join('\n')
 
       const catCtx = catRows
-        .map(r => `  ${r.category}: Feb ${gbp(r.prev)} → Mar ${gbp(r.curr)}`)
+        .map(r => `  ${r.category}: ${prevPeriod.label} ${gbp(r.prev)} → ${currPeriod.label} ${gbp(r.curr)}`)
         .join('\n')
 
-      const feb = monthlyData.find(m => m.key === prevKey)
-      const mar = monthlyData.find(m => m.key === currKey)
-      const netFeb = feb ? feb.income - feb.fixed - feb.discretionary : 0
-      const netMar = mar ? mar.income - mar.fixed - mar.discretionary : 0
-
       const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-6',
+      const response  = await anthropic.messages.create({
+        model:      'claude-sonnet-4-6',
         max_tokens: 300,
         messages: [{
-          role: 'user',
-          content: `You are a personal finance advisor. Based on this spending data:\n\nMonthly overview (last 4 months):\n${spendingCtx}\n\nNet surplus: Feb ${gbp(netFeb)}, Mar (partial) ${gbp(netMar)}\n\nDiscretionary category trends (Feb → Mar, partial month):\n${catCtx}\n\nWrite a 3-4 sentence insight identifying the most important trends, any growing costs to watch, and one specific recommendation. Be direct and specific with pound amounts. Note that March data is partial (up to 13th).`,
+          role:    'user',
+          content: `You are a personal finance advisor. Pay periods run from the 20th to the 19th each month.\n\nPay period summary (last 4 periods):\n${spendingCtx}\n\nDiscretionary category trends (${prevPeriod.label} → ${currPeriod.label}, current period is partial):\n${catCtx}\n\nWrite a 3-4 sentence insight identifying the most important trends, any growing costs to watch, and one specific recommendation. Be direct and specific with pound amounts.`,
         }],
       })
 
       const textBlock = response.content.find(b => b.type === 'text')
       if (textBlock?.type === 'text') {
         insight = textBlock.text
-
-        // Cache for 24 hours
         await supabase.from('ai_insights').insert({
           user_id:    user.id,
           type:       'spending_pattern',
@@ -294,9 +253,7 @@ export default async function TrendsPage() {
         })
       }
     }
-  } catch {
-    // Fail silently — insight is optional
-  }
+  } catch { /* insight is optional */ }
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -305,11 +262,10 @@ export default async function TrendsPage() {
 
       <main className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-8">
 
-        {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">Trends</h1>
           <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
-            Dec 2025 – Mar 2026 · monthly overview
+            {oldest.label} – {newest.label} · pay period analysis
           </p>
         </div>
 
@@ -329,36 +285,35 @@ export default async function TrendsPage() {
           </section>
         )}
 
-        {/* Two-column grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-          {/* Section A — Monthly bar chart */}
-          <section
-            className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
-          >
+          {/* Section A — Pay period bar chart */}
+          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}>
             <div className="px-4 pt-4 pb-2">
               <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8892a4' }}>
                 Monthly Overview
               </h2>
             </div>
-            <div className="px-3 pb-4">
-              <MonthlyChart data={monthlyData} />
+            <div className="px-3 pb-2">
+              <MonthlyChart data={periodData} />
             </div>
-
-            {/* Month totals table */}
             <div style={{ borderTop: '1px solid #1e2a3a' }}>
-              {monthlyData.filter(m => m.income > 0 || m.fixed > 0 || m.discretionary > 0).map((m, i) => (
+              {periodData.filter(d => d.income > 0 || d.fixed > 0 || d.discretionary > 0).map((d, i) => (
                 <div
-                  key={m.key}
+                  key={d.period.start}
                   className="flex items-center justify-between px-4 py-2"
                   style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
                 >
-                  <span className="text-xs font-medium" style={{ color: '#8892a4' }}>{m.label}</span>
+                  <span className="text-xs font-medium" style={{ color: '#8892a4' }}>
+                    {d.period.label}
+                    <span className="ml-1 text-[9px]" style={{ color: '#4a5568' }}>
+                      {d.period.start.slice(5).replace('-', '/')}–{d.period.end.slice(5).replace('-', '/')}
+                    </span>
+                  </span>
                   <div className="flex gap-3 text-xs" style={{ fontFamily: 'var(--font-dm-mono)' }}>
-                    <span style={{ color: '#00FF94' }}>+{gbp(m.income)}</span>
-                    <span style={{ color: '#A78BFA' }}>-{gbp(m.fixed)}</span>
-                    <span style={{ color: '#00D4FF' }}>-{gbp(m.discretionary)}</span>
+                    <span style={{ color: '#00FF94' }}>+{gbp(d.income)}</span>
+                    <span style={{ color: '#A78BFA' }}>-{gbp(d.fixed)}</span>
+                    <span style={{ color: '#00D4FF' }}>-{gbp(d.discretionary)}</span>
                   </div>
                 </div>
               ))}
@@ -366,19 +321,16 @@ export default async function TrendsPage() {
           </section>
 
           {/* Section B — Category trends */}
-          <section
-            className="rounded-2xl overflow-hidden"
-            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
-          >
+          <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}>
             <div className="px-4 pt-4 pb-3">
               <h2 className="text-xs font-semibold uppercase tracking-widest mb-0.5" style={{ color: '#8892a4' }}>
                 Category Trends
               </h2>
               <p className="text-[10px]" style={{ color: '#4a5568' }}>
-                Feb (full) → Mar (partial) · discretionary spend
+                {prevPeriod.label} (full) → {currPeriod.label} (partial) · discretionary
               </p>
             </div>
-            <CategoryTrends rows={catRows} prevLabel="Feb" currLabel="Mar" />
+            <CategoryTrends rows={catRows} prevLabel={prevPeriod.label} currLabel={currPeriod.label} />
             <div className="px-4 py-3 flex gap-4 text-[10px]" style={{ borderTop: '1px solid #1e2a3a', color: '#4a5568' }}>
               <span style={{ color: '#FF4488' }}>▲ &gt;20% growth</span>
               <span style={{ color: '#00FF94' }}>▼ &gt;20% saving</span>

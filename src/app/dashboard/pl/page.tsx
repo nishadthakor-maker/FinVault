@@ -4,11 +4,9 @@ import { BottomNav } from '@/components/BottomNav'
 import { TagPicker } from '@/components/TagPicker'
 import { ExpandableGroup } from '@/components/ExpandableGroup'
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { getCurrentPayPeriod } from '@/lib/payPeriod'
 
 export const dynamic = 'force-dynamic'
-
-const PERIOD_START = '2026-02-20'
-const PERIOD_END   = '2026-03-19'
 
 function gbp(n: number) {
   return Math.abs(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
@@ -71,6 +69,7 @@ function TxRow({ tx, borderTop = true }: { tx: Tx; borderTop?: boolean }) {
 
 export default async function PLPage() {
   const supabase = await createSupabaseServerClient()
+  const period   = getCurrentPayPeriod()
 
   // Get account IDs by name
   const { data: accts } = await supabase
@@ -78,7 +77,7 @@ export default async function PLPage() {
     .select('id, name')
     .in('name', ['NatWest Main', 'Barclaycard Rewards'])
 
-  const natwestId    = accts?.find(a => a.name === 'NatWest Main')?.id
+  const natwestId     = accts?.find(a => a.name === 'NatWest Main')?.id
   const barclaycardId = accts?.find(a => a.name === 'Barclaycard Rewards')?.id
 
   // Fetch both accounts' transactions in parallel
@@ -87,16 +86,16 @@ export default async function PLPage() {
       .from('transactions')
       .select('id, date, description, merchant_name, amount, type, category, tag, transfer_flag')
       .eq('account_id', natwestId)
-      .gte('date', PERIOD_START)
-      .lte('date', PERIOD_END)
+      .gte('date', period.start)
+      .lte('date', period.end)
       .order('date', { ascending: false }) : { data: [] },
 
     barclaycardId ? supabase
       .from('transactions')
       .select('id, date, description, merchant_name, amount, type, category, tag, transfer_flag')
       .eq('account_id', barclaycardId)
-      .gte('date', PERIOD_START)
-      .lte('date', PERIOD_END)
+      .gte('date', period.start)
+      .lte('date', period.end)
       .order('date', { ascending: false }) : { data: [] },
   ])
 
@@ -160,7 +159,10 @@ export default async function PLPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-semibold md:text-3xl">P&amp;L</h1>
           <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
-            Pay period: 20 Feb 2026 – 19 Mar 2026
+            Pay period:{' '}
+            {new Date(period.start + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+            {' '}–{' '}
+            {new Date(period.end + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
           </p>
         </div>
 

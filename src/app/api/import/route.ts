@@ -76,12 +76,14 @@ function autoTag(description: string): AutoTagResult {
   // ── Income ──────────────────────────────────────────────────────────────────
   if (d.includes('PAYROLL') || d.includes('SALARY'))
     return { tag: 'Income', category: 'Salary', transfer_flag: false }
-  if (d.includes('GROCERYINTEL') || d.includes('GROCERY INTEL'))
-    return { tag: 'Income', category: 'Business Income', transfer_flag: false }
-  if (d.includes('THAKER') && !d.includes('N AND P THAKER') && !d.includes('N & P THAKER'))
-    return { tag: 'Income', category: 'Business Income', transfer_flag: false }
+  if (d.includes('MYREWARDS'))
+    return { tag: 'Income', category: 'Rewards', transfer_flag: false }
 
   // ── Transfers ────────────────────────────────────────────────────────────────
+  if (d.includes('GROCERYINTEL') || d.includes('GROCERY INTEL'))
+    return { tag: 'Transfer', category: 'Transfer', transfer_flag: true }
+  if (d.includes('THAKER'))
+    return { tag: 'Transfer', category: 'Family Transfer', transfer_flag: true }
   if (d.includes('CHASE'))
     return { tag: 'Transfer', category: 'Savings Transfer', transfer_flag: true }
   if (d.includes('ACC-NWBNECTAR2') || d.includes('NWBNECTAR'))

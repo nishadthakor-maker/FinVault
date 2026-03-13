@@ -1,7 +1,6 @@
 'use client'
 
 import { useTransition, useState, useRef, useEffect } from 'react'
-import { createPortal } from 'react-dom'
 import { updateTransactionTag } from '@/app/actions/updateTag'
 import { ChevronDown } from 'lucide-react'
 
@@ -10,6 +9,7 @@ type Option = { tag: string; category: string; label: string }
 const OPTIONS: Option[] = [
   { tag: 'Income',        category: 'Salary',          label: '💼 Salary' },
   { tag: 'Income',        category: 'Business Income', label: '📈 Business Income' },
+  { tag: 'Income',        category: 'Rewards',         label: '🎁 Rewards' },
   { tag: 'Income',        category: 'Family',          label: '👨‍👩‍👧 Family Income' },
   { tag: 'Fixed',         category: 'Rent',            label: '🏠 Rent' },
   { tag: 'Fixed',         category: 'Council Tax',     label: '🏛️ Council Tax' },
@@ -38,53 +38,48 @@ const TAG_COLOURS: Record<string, string> = {
   Transfer:      '#4a5568',
 }
 
-type Props = {
-  txId: string
-  tag: string | null
-  category: string | null
-}
-
-type DropdownPos = {
-  anchorValue: number  // value for top (or bottom when openUp=true)
-  left: number
-  openUp: boolean
-}
+type Props = { txId: string; tag: string | null; category: string | null }
 
 export function TagPicker({ txId, tag: initialTag, category: initialCategory }: Props) {
-  const [open, setOpen]             = useState(false)
-  const [tag, setTag]               = useState(initialTag)
-  const [category, setCategory]     = useState(initialCategory)
-  const [isPending, startTransition] = useTransition()
-  const [pos, setPos]               = useState<DropdownPos | null>(null)
-  const [mounted, setMounted]       = useState(false)
+  const [open, setOpen]               = useState(false)
+  const [tag, setTag]                 = useState(initialTag)
+  const [category, setCategory]       = useState(initialCategory)
+  const [isPending, startTransition]  = useTransition()
+  const [rect, setRect]               = useState<DOMRect | null>(null)
 
   const triggerRef  = useRef<HTMLButtonElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setMounted(true) }, [])
+  // ── Track trigger position while open (ResizeObserver + scroll) ────────────
+  useEffect(() => {
+    if (!open || !triggerRef.current) return
 
-  function openDropdown() {
-    if (!triggerRef.current) return
-    const rect = triggerRef.current.getBoundingClientRect()
-    const vh   = window.innerHeight
-    const openUp = vh - rect.bottom < 200
-    setPos({
-      anchorValue: openUp ? vh - rect.top + 4 : rect.bottom + 4,
-      left: Math.max(4, rect.right - 196),
-      openUp,
-    })
-    setOpen(true)
-  }
+    function update() {
+      if (triggerRef.current) setRect(triggerRef.current.getBoundingClientRect())
+    }
 
-  // Close on outside click
+    update()
+
+    const ro = new ResizeObserver(update)
+    ro.observe(triggerRef.current)
+    document.addEventListener('scroll', update, true)
+    window.addEventListener('resize', update)
+
+    return () => {
+      ro.disconnect()
+      document.removeEventListener('scroll', update, true)
+      window.removeEventListener('resize', update)
+    }
+  }, [open])
+
+  // ── Close on outside click ─────────────────────────────────────────────────
   useEffect(() => {
     if (!open) return
     function handler(e: MouseEvent) {
       const t = e.target as Node
-      if (
-        !triggerRef.current?.contains(t) &&
-        !dropdownRef.current?.contains(t)
-      ) setOpen(false)
+      if (!triggerRef.current?.contains(t) && !dropdownRef.current?.contains(t)) {
+        setOpen(false)
+      }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
@@ -97,51 +92,33 @@ export function TagPicker({ txId, tag: initialTag, category: initialCategory }: 
     startTransition(() => updateTransactionTag(txId, opt.tag, opt.category))
   }
 
-  const colour = tag ? TAG_COLOURS[tag] ?? '#4a5568' : '#4a5568'
-  const label  = tag && category ? `${tag} · ${category}` : tag ?? 'Untagged'
+  const colour  = tag ? TAG_COLOURS[tag] ?? '#4a5568' : '#4a5568'
+  const label   = tag && category ? `${tag} · ${category}` : tag ?? 'Untagged'
 
-  const dropdown =
-    open && pos && mounted
-      ? createPortal(
-          <div
-            ref={dropdownRef}
-            style={{
-              position:        'fixed',
-              [pos.openUp ? 'bottom' : 'top']: pos.anchorValue,
-              left:            pos.left,
-              width:           196,
-              zIndex:          9999,
-              backgroundColor: '#1a2535',
-              border:          '1px solid #2a3a4a',
-              borderRadius:    '12px',
-              overflow:        'hidden',
-              padding:         '4px 0',
-              boxShadow:       '0 8px 32px rgba(0,0,0,0.6)',
-            }}
-          >
-            {OPTIONS.map(opt => {
-              const active = opt.tag === tag && opt.category === category
-              return (
-                <button
-                  key={`${opt.tag}-${opt.category}`}
-                  onClick={() => select(opt)}
-                  className="w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-white/5"
-                  style={{ color: active ? TAG_COLOURS[opt.tag] : '#8892a4' }}
-                >
-                  {opt.label}
-                </button>
-              )
-            })}
-          </div>,
-          document.body
-        )
-      : null
+  // Compute dropdown placement from live rect
+  const openUp = rect ? rect.bottom > window.innerHeight - 200 : false
+  const dropdownStyle: React.CSSProperties | undefined = rect
+    ? {
+        position: 'fixed',
+        top:    openUp ? undefined : rect.bottom + 4,
+        bottom: openUp ? window.innerHeight - rect.top + 4 : undefined,
+        left:   Math.max(4, rect.right - 196),
+        width:  196,
+        zIndex: 9999,
+        backgroundColor: '#1a2535',
+        border:          '1px solid #2a3a4a',
+        borderRadius:    '12px',
+        overflow:        'hidden',
+        padding:         '4px 0',
+        boxShadow:       '0 8px 32px rgba(0,0,0,0.6)',
+      }
+    : undefined
 
   return (
-    <>
+    <div>
       <button
         ref={triggerRef}
-        onClick={openDropdown}
+        onClick={() => setOpen(o => !o)}
         disabled={isPending}
         className="flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-opacity"
         style={{
@@ -154,7 +131,24 @@ export function TagPicker({ txId, tag: initialTag, category: initialCategory }: 
         {isPending ? '…' : label}
         <ChevronDown size={10} />
       </button>
-      {dropdown}
-    </>
+
+      {open && rect && (
+        <div ref={dropdownRef} style={dropdownStyle}>
+          {OPTIONS.map(opt => {
+            const active = opt.tag === tag && opt.category === category
+            return (
+              <button
+                key={`${opt.tag}-${opt.category}`}
+                onClick={() => select(opt)}
+                className="w-full px-3 py-1.5 text-left text-xs transition-colors hover:bg-white/5"
+                style={{ color: active ? TAG_COLOURS[opt.tag] : '#8892a4' }}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
   )
 }
