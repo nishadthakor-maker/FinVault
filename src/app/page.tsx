@@ -1,99 +1,151 @@
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
-import {
-  ArrowDownLeft,
-  ArrowUpRight,
-} from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import Link from 'next/link'
 
-// ─── Placeholder data ────────────────────────────────────────────────────────
+export const dynamic = 'force-dynamic'
 
-const summaryCards = [
-  {
-    label: 'Net Worth',
-    value: '£12,450.00',
-    sub: '+£320 this month',
-    positive: true,
-    color: '#00FF94',
-  },
-  {
-    label: 'Safe to Spend',
-    value: '£840.00',
-    sub: 'Until payday',
-    positive: true,
-    color: '#00D4FF',
-  },
-  {
-    label: 'Monthly Spent',
-    value: '£1,240.00',
-    sub: '£560 remaining',
-    positive: false,
-    color: '#FF4488',
-  },
-  {
-    label: 'Days to Payday',
-    value: '8',
-    sub: '25th March',
-    positive: true,
-    color: '#A78BFA',
-  },
-]
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
-const transactions = [
-  {
-    id: 1,
-    merchant: 'Tesco Express',
-    category: 'Groceries',
-    amount: -24.5,
-    date: 'Today',
-    icon: '🛒',
-  },
-  {
-    id: 2,
-    merchant: 'Salary — ACME Ltd',
-    category: 'Income',
-    amount: 3200.0,
-    date: 'Yesterday',
-    icon: '💼',
-  },
-  {
-    id: 3,
-    merchant: 'Spotify',
-    category: 'Subscriptions',
-    amount: -11.99,
-    date: '11 Mar',
-    icon: '🎵',
-  },
-  {
-    id: 4,
-    merchant: 'Amazon',
-    category: 'Shopping',
-    amount: -38.99,
-    date: '10 Mar',
-    icon: '📦',
-  },
-]
+const PERIOD_START = '2026-02-20'
+const PERIOD_END   = '2026-03-19'
+const PAYDAY       = new Date('2026-03-20T00:00:00')
 
-// ─── Page ────────────────────────────────────────────────────────────────────
+function gbp(n: number) {
+  return Math.abs(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
+}
 
-export default function DashboardPage() {
+function formatTxDate(dateStr: string): string {
+  const txDate = new Date(dateStr + 'T00:00:00')
+  const today  = new Date()
+  today.setHours(0, 0, 0, 0)
+  const diff = Math.round((today.getTime() - txDate.getTime()) / 86400000)
+  if (diff === 0) return 'Today'
+  if (diff === 1) return 'Yesterday'
+  return txDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+}
+
+function txIcon(category: string | null, type: string): string {
+  const c = (category ?? '').toLowerCase()
+  if (c.includes('salary'))        return '💼'
+  if (c.includes('business'))      return '📈'
+  if (c.includes('groceries'))     return '🛒'
+  if (c.includes('fuel'))          return '⛽'
+  if (c.includes('parking'))       return '🅿️'
+  if (c.includes('entertainment')) return '🎵'
+  if (c.includes('dining'))        return '🍽️'
+  if (c.includes('personal care')) return '💇'
+  if (c.includes('transport'))     return '🚂'
+  if (c.includes('energy'))        return '⚡'
+  if (c.includes('broadband'))     return '📡'
+  if (c.includes('mobile'))        return '📱'
+  if (c.includes('insurance'))     return '🛡️'
+  if (c.includes('rent'))          return '🏠'
+  if (c.includes('council'))       return '🏛️'
+  if (c.includes('car finance'))   return '🚗'
+  if (c.includes('transfer'))      return '↔️'
+  if (c.includes('family'))        return '👨‍👩‍👧'
+  return type === 'credit' ? '💰' : '💸'
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default async function DashboardPage() {
+  const supabase = await createSupabaseServerClient()
+
+  // ── Fetch in parallel ──────────────────────────────────────────────────────
+  const [accountsRes, periodRes, recentRes] = await Promise.all([
+    supabase
+      .from('accounts')
+      .select('type, balance')
+      .eq('is_active', true),
+
+    supabase
+      .from('transactions')
+      .select('amount, tag, type, transfer_flag')
+      .gte('date', PERIOD_START)
+      .lte('date', PERIOD_END),
+
+    supabase
+      .from('transactions')
+      .select('id, date, description, merchant_name, amount, type, category, tag, account_id')
+      .order('date', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(10),
+  ])
+
+  // ── Net Worth ──────────────────────────────────────────────────────────────
+  const accounts = accountsRes.data ?? []
+  const checkingTotal = accounts
+    .filter(a => a.type !== 'credit')
+    .reduce((s, a) => s + Number(a.balance), 0)
+  const creditTotal = accounts
+    .filter(a => a.type === 'credit')
+    .reduce((s, a) => s + Number(a.balance), 0)
+  const netWorth = checkingTotal - creditTotal
+
+  // ── Pay period totals ──────────────────────────────────────────────────────
+  const period = periodRes.data ?? []
+  const totalIncome = period
+    .filter(t => t.tag === 'Income')
+    .reduce((s, t) => s + Number(t.amount), 0)
+  const fixedCosts = period
+    .filter(t => t.tag === 'Fixed')
+    .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
+  const discretionary = period
+    .filter(t => t.tag === 'Discretionary')
+    .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
+
+  const monthlySpent  = fixedCosts + discretionary
+  const safeToSpend   = totalIncome - fixedCosts - discretionary
+
+  // ── Days to payday ─────────────────────────────────────────────────────────
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const daysToPayday = Math.max(0, Math.ceil((PAYDAY.getTime() - now.getTime()) / 86400000))
+
+  // ── Summary cards ─────────────────────────────────────────────────────────
+  const cards = [
+    {
+      label: 'Net Worth',
+      value: (netWorth < 0 ? '-' : '') + gbp(netWorth),
+      sub: `${gbp(checkingTotal)} assets · ${gbp(creditTotal)} owed`,
+      color: netWorth >= 0 ? '#00FF94' : '#FF4488',
+    },
+    {
+      label: 'Safe to Spend',
+      value: (safeToSpend < 0 ? '-' : '') + gbp(safeToSpend),
+      sub: 'Payday 20 Mar 2026',
+      color: safeToSpend >= 0 ? '#00D4FF' : '#FF4488',
+    },
+    {
+      label: 'Monthly Spent',
+      value: gbp(monthlySpent),
+      sub: `Of ${gbp(totalIncome)} income this period`,
+      color: '#FF4488',
+    },
+    {
+      label: 'Days to Payday',
+      value: String(daysToPayday),
+      sub: '20th March 2026',
+      color: '#A78BFA',
+    },
+  ]
+
+  const recent = recentRes.data ?? []
   const hour = new Date().getHours()
-  const greeting =
-    hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   return (
     <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0d1117', color: '#f0f4f8' }}>
-
-      {/* ── Top nav ── */}
       <TopNav />
 
-      {/* ── Main content ── */}
       <main className="mx-auto w-full max-w-4xl px-4 pt-6 md:px-8">
 
         {/* Welcome */}
         <section className="mb-6">
-          <h1 className="text-2xl font-semibold md:text-3xl">
-            {greeting}, Nishad
-          </h1>
+          <h1 className="text-2xl font-semibold md:text-3xl">{greeting}, Nishad</h1>
           <p className="mt-1 text-sm" style={{ color: '#8892a4' }}>
             {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
           </p>
@@ -101,7 +153,7 @@ export default function DashboardPage() {
 
         {/* Summary cards */}
         <section className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-          {summaryCards.map((card) => (
+          {cards.map(card => (
             <div
               key={card.label}
               className="rounded-2xl p-4 md:p-5"
@@ -116,9 +168,7 @@ export default function DashboardPage() {
               >
                 {card.value}
               </p>
-              <p className="mt-2 text-xs" style={{ color: '#4a5568' }}>
-                {card.sub}
-              </p>
+              <p className="mt-2 text-xs" style={{ color: '#4a5568' }}>{card.sub}</p>
             </div>
           ))}
         </section>
@@ -127,37 +177,42 @@ export default function DashboardPage() {
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-base font-semibold md:text-lg">Recent Transactions</h2>
-            <button className="text-xs font-medium" style={{ color: '#00D4FF' }}>
-              See all
-            </button>
+            <Link href="/dashboard/pl" className="text-xs font-medium" style={{ color: '#00D4FF' }}>
+              View P&amp;L →
+            </Link>
           </div>
 
           <div
             className="rounded-2xl overflow-hidden"
             style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
           >
-            {transactions.map((tx, i) => {
-              const isPositive = tx.amount > 0
+            {recent.length === 0 ? (
+              <p className="px-5 py-8 text-center text-sm" style={{ color: '#4a5568' }}>
+                No transactions yet — <Link href="/dashboard/import" style={{ color: '#00D4FF' }}>import a statement</Link>
+              </p>
+            ) : recent.map((tx, i) => {
+              const isCredit = Number(tx.amount) >= 0
+              const amt = Number(tx.amount)
               return (
                 <div
                   key={tx.id}
                   className="flex items-center gap-3 px-4 py-3.5 md:px-5 md:py-4"
-                  style={{
-                    borderTop: i === 0 ? 'none' : '1px solid #1e2a3a',
-                  }}
+                  style={{ borderTop: i === 0 ? 'none' : '1px solid #1e2a3a' }}
                 >
                   {/* Icon */}
                   <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-base"
                     style={{ backgroundColor: '#0d1117' }}
                   >
-                    {tx.icon}
+                    {txIcon(tx.category, tx.type)}
                   </div>
 
                   {/* Merchant + category */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{tx.merchant}</p>
-                    <p className="text-xs" style={{ color: '#4a5568' }}>{tx.category}</p>
+                    <p className="truncate text-sm font-medium">{tx.merchant_name || tx.description}</p>
+                    <p className="text-xs" style={{ color: '#4a5568' }}>
+                      {tx.category ?? tx.tag ?? tx.type}
+                    </p>
                   </div>
 
                   {/* Amount + date */}
@@ -165,23 +220,22 @@ export default function DashboardPage() {
                     <p
                       className="text-sm font-semibold"
                       style={{
-                        color: isPositive ? '#00FF94' : '#f0f4f8',
+                        color: isCredit ? '#00FF94' : '#f0f4f8',
                         fontFamily: 'var(--font-dm-mono)',
                       }}
                     >
-                      {isPositive ? '+' : ''}
-                      {tx.amount.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })}
+                      {isCredit ? '+' : ''}
+                      {amt.toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })}
                     </p>
-                    <p className="text-xs" style={{ color: '#4a5568' }}>{tx.date}</p>
+                    <p className="text-xs" style={{ color: '#4a5568' }}>{formatTxDate(tx.date)}</p>
                   </div>
 
                   {/* Direction icon */}
-                  <div className="shrink-0 ml-1">
-                    {isPositive ? (
-                      <ArrowDownLeft size={14} style={{ color: '#00FF94' }} />
-                    ) : (
-                      <ArrowUpRight size={14} style={{ color: '#8892a4' }} />
-                    )}
+                  <div className="ml-1 shrink-0">
+                    {isCredit
+                      ? <ArrowDownLeft size={14} style={{ color: '#00FF94' }} />
+                      : <ArrowUpRight  size={14} style={{ color: '#8892a4' }} />
+                    }
                   </div>
                 </div>
               )
@@ -190,8 +244,6 @@ export default function DashboardPage() {
         </section>
 
       </main>
-
-      {/* ── Bottom nav (mobile) ── */}
       <BottomNav />
     </div>
   )
