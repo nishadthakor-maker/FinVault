@@ -1,14 +1,19 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
-import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight, Sparkles } from 'lucide-react'
 import Link from 'next/link'
 import { getCurrentPayPeriod, getNextPayday } from '@/lib/payPeriod'
+import { getFinancialSummary } from '@/lib/financialSummary'
 
 export const dynamic = 'force-dynamic'
 
 function gbp(n: number) {
   return Math.abs(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
+}
+
+function gbp0(n: number) {
+  return Math.abs(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP', maximumFractionDigits: 0 })
 }
 
 function formatTxDate(dateStr: string): string {
@@ -41,29 +46,55 @@ function txIcon(category: string | null, type: string): string {
   if (c.includes('car finance'))   return '🚗'
   if (c.includes('transfer'))      return '↔️'
   if (c.includes('family'))        return '👨‍👩‍👧'
+  if (c.includes('rewards'))       return '🎁'
   return type === 'credit' ? '💰' : '💸'
+}
+
+// ─── Waterfall row ─────────────────────────────────────────────────────────────
+
+function WaterfallRow({
+  label,
+  amount,
+  color,
+  pct,
+  indent = false,
+}: {
+  label:  string
+  amount: number
+  color:  string
+  pct:    number
+  indent?: boolean
+}) {
+  return (
+    <div className={`flex items-center gap-3 py-2 ${indent ? 'pl-4' : ''}`}>
+      <div className="w-28 shrink-0">
+        <p className="text-xs" style={{ color: '#8892a4' }}>{label}</p>
+      </div>
+      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#1e2a3a' }}>
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
+        />
+      </div>
+      <span
+        className="w-20 text-right text-sm font-semibold shrink-0"
+        style={{ color, fontFamily: 'var(--font-dm-mono)' }}
+      >
+        -{gbp0(amount)}
+      </span>
+    </div>
+  )
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
-  const supabase = await createSupabaseServerClient()
-  const period      = getCurrentPayPeriod()
-  const nextPayday  = getNextPayday()
+  const supabase   = await createSupabaseServerClient()
+  const period     = getCurrentPayPeriod()
+  const nextPayday = getNextPayday()
 
-  // ── Fetch in parallel ──────────────────────────────────────────────────────
-  const [accountsRes, periodRes, recentRes] = await Promise.all([
-    supabase
-      .from('accounts')
-      .select('type, balance')
-      .eq('is_active', true),
-
-    supabase
-      .from('transactions')
-      .select('amount, tag, type, transfer_flag')
-      .gte('date', period.start)
-      .lte('date', period.end),
-
+  const [summary, recentRes] = await Promise.all([
+    getFinancialSummary(supabase, period.start, period.end),
     supabase
       .from('transactions')
       .select('id, date, description, merchant_name, amount, type, category, tag, account_id')
@@ -72,66 +103,57 @@ export default async function DashboardPage() {
       .limit(10),
   ])
 
-  // ── Net Worth ──────────────────────────────────────────────────────────────
-  const accounts = accountsRes.data ?? []
-  const checkingTotal = accounts
-    .filter(a => a.type !== 'credit')
-    .reduce((s, a) => s + Number(a.balance), 0)
-  const creditTotal = accounts
-    .filter(a => a.type === 'credit')
-    .reduce((s, a) => s + Number(a.balance), 0)
-  const netWorth = checkingTotal - creditTotal
-
-  // ── Pay period totals ──────────────────────────────────────────────────────
-  const periodTxs = periodRes.data ?? []
-  const totalIncome = periodTxs
-    .filter(t => t.tag === 'Income')
-    .reduce((s, t) => s + Number(t.amount), 0)
-  const fixedCosts = periodTxs
-    .filter(t => t.tag === 'Fixed')
-    .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
-  const discretionary = periodTxs
-    .filter(t => t.tag === 'Discretionary')
-    .reduce((s, t) => s + Math.abs(Number(t.amount)), 0)
-
-  const monthlySpent  = fixedCosts + discretionary
-  const safeToSpend   = totalIncome - fixedCosts - discretionary
-
   // ── Days to payday ─────────────────────────────────────────────────────────
   const now = new Date()
   now.setHours(0, 0, 0, 0)
   const daysToPayday = Math.max(0, Math.ceil((nextPayday.getTime() - now.getTime()) / 86400000))
 
+  const { income, realExpenses, savingsMovements, netPosition } = summary
+
   // ── Summary cards ─────────────────────────────────────────────────────────
   const cards = [
     {
-      label: 'Net Worth',
-      value: (netWorth < 0 ? '-' : '') + gbp(netWorth),
-      sub: `${gbp(checkingTotal)} assets · ${gbp(creditTotal)} owed`,
-      color: netWorth >= 0 ? '#00FF94' : '#FF4488',
+      label: income.isBonus ? 'Salary 🎉 Bonus' : 'Salary',
+      value: gbp(income.salary),
+      sub:   income.isBonus
+        ? `Normal ~${gbp0(income.normalSalary)} · Bonus +${gbp0(income.bonusAmount)}`
+        : `Pay period ends ${nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+      color: '#00FF94',
     },
     {
-      label: 'Safe to Spend',
-      value: (safeToSpend < 0 ? '-' : '') + gbp(safeToSpend),
-      sub: `Payday ${nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`,
-      color: safeToSpend >= 0 ? '#00D4FF' : '#FF4488',
+      label: 'Real Spend',
+      value: gbp(realExpenses.total),
+      sub:   `${income.salary > 0 ? Math.round((realExpenses.total / income.salary) * 100) : 0}% of salary`,
+      color: realExpenses.total <= income.salary ? '#FF4488' : '#FF2222',
     },
     {
-      label: 'Monthly Spent',
-      value: gbp(monthlySpent),
-      sub: `Of ${gbp(totalIncome)} income this period`,
-      color: '#FF4488',
-    },
-    {
-      label: 'Days to Payday',
-      value: String(daysToPayday),
-      sub: nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }),
+      label: 'Net Saved',
+      value: gbp(savingsMovements.net),
+      sub:   `${income.salary > 0 ? Math.round(netPosition.savingsRate * 100) : 0}% savings rate`,
       color: '#A78BFA',
+    },
+    {
+      label: netPosition.surplusDeficit >= 0 ? 'Surplus' : 'Deficit',
+      value: (netPosition.surplusDeficit < 0 ? '-' : '') + gbp(netPosition.surplusDeficit),
+      sub:   `${daysToPayday} days to payday`,
+      color: netPosition.surplusDeficit >= 0 ? '#00D4FF' : '#FF4488',
     },
   ]
 
+  // ── Waterfall bars ─────────────────────────────────────────────────────────
+  const baseForPct = income.salary || 1
+  const waterfall = [
+    { label: 'Rent',          amount: summary.rent.total,                     color: '#A78BFA' },
+    { label: 'Car Finance',   amount: summary.carFinance.total,               color: '#A78BFA' },
+    { label: 'Bills',         amount: summary.fixedBills.total,               color: '#A78BFA' },
+    { label: 'Discretionary', amount: summary.directDiscretionary.total,      color: '#00D4FF' },
+    { label: 'CC Spend',      amount: summary.creditCardSpending.grandTotal,  color: '#00D4FF' },
+    { label: 'Saved',         amount: summary.savingsMovements.net,           color: '#FF4488' },
+    { label: 'CC Repayments', amount: summary.creditCardRepayments.total,     color: '#4a5568' },
+  ].filter(row => row.amount > 0)
+
   const recent = recentRes.data ?? []
-  const hour = new Date().getHours()
+  const hour   = new Date().getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
 
   return (
@@ -170,6 +192,67 @@ export default async function DashboardPage() {
           ))}
         </section>
 
+        {/* Money flow waterfall */}
+        <section className="mb-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-base font-semibold md:text-lg">Money Flow</h2>
+            <span className="text-xs" style={{ color: '#8892a4' }}>
+              {period.start.slice(5).replace('-', '/')} – {period.end.slice(5).replace('-', '/')}
+            </span>
+          </div>
+
+          <div
+            className="rounded-2xl p-4 md:p-5"
+            style={{ backgroundColor: '#131929', border: '1px solid #1e2a3a' }}
+          >
+            {/* Income bar */}
+            <div className="flex items-center gap-3 pb-3 mb-2" style={{ borderBottom: '1px solid #1e2a3a' }}>
+              <div className="w-28 shrink-0">
+                <p className="text-xs font-medium" style={{ color: '#00FF94' }}>Salary In</p>
+              </div>
+              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: '#00FF9430' }}>
+                <div className="h-full rounded-full w-full" style={{ backgroundColor: '#00FF94' }} />
+              </div>
+              <span
+                className="w-20 text-right text-sm font-semibold shrink-0"
+                style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}
+              >
+                +{gbp0(income.salary)}
+              </span>
+            </div>
+
+            {/* Outflows */}
+            {waterfall.map(row => (
+              <WaterfallRow
+                key={row.label}
+                label={row.label}
+                amount={row.amount}
+                color={row.color}
+                pct={(row.amount / baseForPct) * 100}
+              />
+            ))}
+
+            {/* Remaining */}
+            <div className="flex items-center gap-3 pt-3 mt-1" style={{ borderTop: '1px solid #1e2a3a' }}>
+              <div className="w-28 shrink-0">
+                <p className="text-xs font-medium" style={{ color: summary.cashFlow.remaining >= 0 ? '#00D4FF' : '#FF4488' }}>
+                  Remaining
+                </p>
+              </div>
+              <div className="flex-1" />
+              <span
+                className="w-20 text-right text-sm font-bold shrink-0"
+                style={{
+                  color: summary.cashFlow.remaining >= 0 ? '#00D4FF' : '#FF4488',
+                  fontFamily: 'var(--font-dm-mono)',
+                }}
+              >
+                {summary.cashFlow.remaining >= 0 ? '+' : '-'}{gbp0(summary.cashFlow.remaining)}
+              </span>
+            </div>
+          </div>
+        </section>
+
         {/* Recent transactions */}
         <section>
           <div className="mb-3 flex items-center justify-between">
@@ -189,7 +272,7 @@ export default async function DashboardPage() {
               </p>
             ) : recent.map((tx, i) => {
               const isCredit = Number(tx.amount) >= 0
-              const amt = Number(tx.amount)
+              const amt      = Number(tx.amount)
               return (
                 <div
                   key={tx.id}

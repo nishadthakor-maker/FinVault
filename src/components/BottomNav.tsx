@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2 } from 'lucide-react'
+import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange } from 'lucide-react'
 
 const navItems = [
   { href: '/',                    label: 'Dashboard', icon: LayoutDashboard },
@@ -10,6 +10,7 @@ const navItems = [
   { href: '/dashboard/accounts',  label: 'Accounts',  icon: CreditCard },
   { href: '/dashboard/pl',        label: 'P&L',       icon: TrendingUp },
   { href: '/dashboard/trends',    label: 'Trends',    icon: BarChart2 },
+  { href: '/dashboard/ytd',       label: 'YTD',       icon: CalendarRange },
 ]
 
 export function BottomNav() {
