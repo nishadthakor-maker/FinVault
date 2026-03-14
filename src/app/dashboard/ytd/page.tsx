@@ -26,7 +26,7 @@ function SurplusChart({ rows }: { rows: PeriodRow[] }) {
   const chartW = W - ml - mr
   const chartH = H - mt - mb
 
-  const values = rows.map(r => r.summary.netPosition.surplusDeficit)
+  const values = rows.map(r => r.summary.cashFlowView.cashRemaining)
   const maxAbs = Math.max(Math.abs(Math.min(...values)), Math.abs(Math.max(...values)), 100)
   const ceiling = Math.ceil(maxAbs / 500) * 500 || 500
 
@@ -35,7 +35,7 @@ function SurplusChart({ rows }: { rows: PeriodRow[] }) {
 
   const zero = mt + chartH / 2
 
-  const points = rows.map((r, i) => `${x(i)},${y(r.summary.netPosition.surplusDeficit)}`).join(' ')
+  const points = rows.map((r, i) => `${x(i)},${y(r.summary.cashFlowView.cashRemaining)}`).join(' ')
 
   return (
     <svg
@@ -74,7 +74,7 @@ function SurplusChart({ rows }: { rows: PeriodRow[] }) {
 
       {/* Dots */}
       {rows.map((r, i) => {
-        const v = r.summary.netPosition.surplusDeficit
+        const v = r.summary.cashFlowView.cashRemaining
         return (
           <circle
             key={i}
@@ -131,10 +131,15 @@ export default async function YTDPage() {
   const isCurrentPeriod = (p: PayPeriod) => p.start === current.start
 
   // Totals
-  const ytdSalary  = rows.reduce((s, r) => s + r.summary.income.salary, 0)
-  const ytdSpend   = rows.reduce((s, r) => s + r.summary.realExpenses.total, 0)
-  const ytdSaved   = rows.reduce((s, r) => s + r.summary.savingsMovements.net, 0)
-  const ytdSurplus = rows.reduce((s, r) => s + r.summary.netPosition.surplusDeficit, 0)
+  const ytdSalary        = rows.reduce((s, r) => s + r.summary.income.total, 0)
+  const ytdSpend         = rows.reduce((s, r) => s + r.summary.committedCosts.total + r.summary.spendingView.totalSpending, 0)
+  const ytdSaved         = rows.reduce((s, r) => s + r.summary.savings.net, 0)
+  const ytdCashLeft      = rows.reduce((s, r) => s + r.summary.cashFlowView.cashRemaining, 0)
+  const ytdCommitted     = rows.reduce((s, r) => s + r.summary.committedCosts.total, 0)
+  const ytdCCSpend       = rows.reduce((s, r) => s + (r.summary.spendingView.totalSpending - r.summary.spendingView.directFromNatwest.total), 0)
+  const ytdDirectSpend   = rows.reduce((s, r) => s + r.summary.spendingView.directFromNatwest.total, 0)
+  const ytdSpendSurplus  = rows.reduce((s, r) => s + r.summary.spendingView.spendingSurplus, 0)
+  const ytdDebtChange    = rows.reduce((s, r) => s + r.summary.debtHealthIndicator.netDebtChange, 0)
 
   return (
     <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
@@ -153,10 +158,10 @@ export default async function YTDPage() {
         {/* YTD summary cards */}
         <section className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
           {[
-            { label: 'Total Income',  value: ytdSalary,  color: '#00FF94' },
-            { label: 'Total Spend',   value: ytdSpend,   color: '#FF4488' },
-            { label: 'Total Saved',   value: ytdSaved,   color: '#A78BFA' },
-            { label: 'Net Surplus',   value: ytdSurplus, color: ytdSurplus >= 0 ? '#00D4FF' : '#FF4488' },
+            { label: 'Total Income',  value: ytdSalary,      color: '#00FF94' },
+            { label: 'Total Spend',   value: ytdSpend,       color: '#FF4488' },
+            { label: 'Total Saved',   value: ytdSaved,       color: '#A78BFA' },
+            { label: 'Cash Left',     value: ytdCashLeft,    color: ytdCashLeft >= 0 ? '#00D4FF' : '#FF4488' },
           ].map(card => (
             <div
               key={card.label}
@@ -189,167 +194,153 @@ export default async function YTDPage() {
 
         {/* Per-period breakdown table */}
         <section
-          className="mb-6 rounded-2xl overflow-hidden"
+          className="mb-2 rounded-2xl overflow-hidden"
           style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
         >
-          {/* Table header */}
-          <div
-            className="grid grid-cols-5 px-4 py-3 text-xs font-semibold uppercase tracking-wider"
-            style={{ color: '#4a5568', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <span>Period</span>
-            <span className="text-right">Salary</span>
-            <span className="text-right">Real Spend</span>
-            <span className="text-right">Saved</span>
-            <span className="text-right">Surplus</span>
-          </div>
+          <div className="overflow-x-auto">
+            <div style={{ minWidth: '640px' }}>
 
-          {rows.map((row, i) => {
-            const { period, summary: s } = row
-            const isCurrent = isCurrentPeriod(period)
-            const surplus   = s.netPosition.surplusDeficit
-
-            return (
+              {/* Table header */}
               <div
-                key={period.start}
-                className="grid grid-cols-5 px-4 py-3.5 items-center"
-                style={{
-                  borderTop:       i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)',
-                  backgroundColor: isCurrent ? 'rgba(0,212,255,0.04)' : 'transparent',
-                }}
+                className="grid grid-cols-7 px-4 py-3 text-xs font-semibold uppercase tracking-wider"
+                style={{ color: '#4a5568', borderBottom: '1px solid rgba(255,255,255,0.06)' }}
               >
-                {/* Period */}
-                <div>
-                  <p className="text-sm font-semibold" style={{ color: isCurrent ? '#00D4FF' : '#f0f4f8' }}>
-                    {period.label}
-                    {isCurrent && <span className="ml-1 text-xs" style={{ color: '#4a5568' }}>●</span>}
-                  </p>
-                  <p className="text-xs" style={{ color: '#4a5568' }}>
-                    {new Date(period.start + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                    {' – '}
-                    {new Date(period.end + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                  </p>
-                </div>
+                <span>Period</span>
+                <span className="text-right">Salary</span>
+                <span className="text-right">Committed</span>
+                <span className="text-right">CC Spend</span>
+                <span className="text-right">Direct</span>
+                <span className="text-right">Surplus</span>
+                <span className="text-right">Debt Δ</span>
+              </div>
 
-                {/* Salary */}
-                <div className="text-right">
-                  <p className="text-sm font-semibold" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
-                    {gbp(s.income.salary)}
-                  </p>
-                  {s.income.isBonus && (
-                    <p className="text-xs" style={{ color: '#4a5568' }}>🎉 bonus</p>
-                  )}
-                </div>
+              {rows.map((row, i) => {
+                const { period, summary: s } = row
+                const isCurrent      = isCurrentPeriod(period)
+                const surplus        = s.spendingView.spendingSurplus
+                const debtChange     = s.debtHealthIndicator.netDebtChange
+                const ccSpend        = s.spendingView.totalSpending - s.spendingView.directFromNatwest.total
 
-                {/* Real Spend */}
-                <div className="text-right">
-                  <p className="text-sm font-semibold" style={{ color: '#FF4488', fontFamily: 'var(--font-dm-mono)' }}>
-                    {gbp(s.realExpenses.total)}
-                  </p>
-                  {s.income.salary > 0 && (
-                    <p className="text-xs" style={{ color: '#4a5568' }}>
-                      {Math.round((s.realExpenses.total / s.income.salary) * 100)}%
-                    </p>
-                  )}
-                </div>
-
-                {/* Saved */}
-                <div className="text-right">
-                  <p className="text-sm font-semibold" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>
-                    {gbp(s.savingsMovements.net)}
-                  </p>
-                  {s.income.salary > 0 && (
-                    <p className="text-xs" style={{ color: '#4a5568' }}>
-                      {Math.round(s.netPosition.savingsRate * 100)}%
-                    </p>
-                  )}
-                </div>
-
-                {/* Surplus */}
-                <div className="text-right">
-                  <p
-                    className="text-sm font-semibold"
-                    style={{ color: surplus >= 0 ? '#00D4FF' : '#FF4488', fontFamily: 'var(--font-dm-mono)' }}
+                return (
+                  <div
+                    key={period.start}
+                    className="grid grid-cols-7 px-4 py-3.5 items-center"
+                    style={{
+                      borderTop:       i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)',
+                      backgroundColor: isCurrent ? 'rgba(0,212,255,0.04)' : 'transparent',
+                    }}
                   >
-                    {sign(surplus)}{gbp(surplus)}
-                  </p>
-                </div>
-              </div>
-            )
-          })}
+                    {/* Period */}
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: isCurrent ? '#00D4FF' : '#f0f4f8' }}>
+                        {period.label}
+                        {isCurrent && <span className="ml-1 text-xs" style={{ color: '#4a5568' }}>●</span>}
+                      </p>
+                      <p className="text-xs" style={{ color: '#4a5568' }}>
+                        {new Date(period.start + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                        {' – '}
+                        {new Date(period.end + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
 
-          {/* Totals row */}
-          <div
-            className="grid grid-cols-5 px-4 py-3.5 items-center text-sm font-bold"
-            style={{ borderTop: '2px solid rgba(255,255,255,0.1)' }}
-          >
-            <span style={{ color: '#8899aa' }}>Total</span>
-            <span className="text-right" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
-              {gbp(ytdSalary)}
-            </span>
-            <span className="text-right" style={{ color: '#FF4488', fontFamily: 'var(--font-dm-mono)' }}>
-              {gbp(ytdSpend)}
-            </span>
-            <span className="text-right" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>
-              {gbp(ytdSaved)}
-            </span>
-            <span
-              className="text-right"
-              style={{ color: ytdSurplus >= 0 ? '#00D4FF' : '#FF4488', fontFamily: 'var(--font-dm-mono)' }}
-            >
-              {sign(ytdSurplus)}{gbp(ytdSurplus)}
-            </span>
-          </div>
-        </section>
+                    {/* Salary */}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
+                        {gbp(s.income.total)}
+                      </p>
+                      {s.income.isBonus && (
+                        <p className="text-xs" style={{ color: '#4a5568' }}>🎉 bonus</p>
+                      )}
+                    </div>
 
-        {/* Per-period spend breakdown */}
-        <section
-          className="mb-6 rounded-2xl overflow-hidden"
-          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
-        >
-          <div className="px-4 pt-4 pb-2">
-            <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
-              Spend Breakdown
-            </h2>
-          </div>
+                    {/* Committed */}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>
+                        {gbp(s.committedCosts.total)}
+                      </p>
+                    </div>
 
-          {/* Header */}
-          <div
-            className="grid grid-cols-4 px-4 py-2 text-xs font-semibold uppercase tracking-wider"
-            style={{ color: '#4a5568', borderBottom: '1px solid rgba(255,255,255,0.06)', borderTop: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <span>Period</span>
-            <span className="text-right">Fixed</span>
-            <span className="text-right">Discretionary</span>
-            <span className="text-right">CC Spend</span>
-          </div>
+                    {/* CC Spend */}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
+                        {gbp(ccSpend)}
+                      </p>
+                    </div>
 
-          {rows.map((row, i) => {
-            const { period, summary: s } = row
-            const fixedTotal  = s.rent.total + s.carFinance.total + s.fixedBills.total
-            const directTotal = s.directDiscretionary.total
-            const ccTotal     = s.creditCardSpending.grandTotal
+                    {/* Direct Spend */}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
+                        {gbp(s.spendingView.directFromNatwest.total)}
+                      </p>
+                    </div>
 
-            return (
+                    {/* Spending Surplus */}
+                    <div className="text-right">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{ color: surplus >= 0 ? '#00FF94' : '#FF4488', fontFamily: 'var(--font-dm-mono)' }}
+                      >
+                        {sign(surplus)}{gbp(surplus)}
+                      </p>
+                    </div>
+
+                    {/* CC Debt Change */}
+                    <div className="text-right">
+                      <p
+                        className="text-sm font-semibold"
+                        style={{
+                          color: debtChange > 50 ? '#00FF94' : debtChange < -50 ? '#FF4488' : '#8899aa',
+                          fontFamily: 'var(--font-dm-mono)',
+                        }}
+                      >
+                        {debtChange > 50 ? '↓ ' : debtChange < -50 ? '↑ ' : ''}{sign(debtChange)}{gbp(debtChange)}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* Totals row */}
               <div
-                key={period.start}
-                className="grid grid-cols-4 px-4 py-3 items-center"
-                style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
+                className="grid grid-cols-7 px-4 py-3.5 items-center text-sm font-bold"
+                style={{ borderTop: '2px solid rgba(255,255,255,0.1)' }}
               >
-                <span className="text-sm font-medium">{period.label}</span>
-                <span className="text-right text-sm" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>
-                  {gbp(fixedTotal)}
+                <span style={{ color: '#8899aa' }}>Total</span>
+                <span className="text-right" style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}>
+                  {gbp(ytdSalary)}
                 </span>
-                <span className="text-right text-sm" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
-                  {gbp(directTotal)}
+                <span className="text-right" style={{ color: '#A78BFA', fontFamily: 'var(--font-dm-mono)' }}>
+                  {gbp(ytdCommitted)}
                 </span>
-                <span className="text-right text-sm" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
-                  {gbp(ccTotal)}
+                <span className="text-right" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
+                  {gbp(ytdCCSpend)}
+                </span>
+                <span className="text-right" style={{ color: '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
+                  {gbp(ytdDirectSpend)}
+                </span>
+                <span
+                  className="text-right"
+                  style={{ color: ytdSpendSurplus >= 0 ? '#00FF94' : '#FF4488', fontFamily: 'var(--font-dm-mono)' }}
+                >
+                  {sign(ytdSpendSurplus)}{gbp(ytdSpendSurplus)}
+                </span>
+                <span
+                  className="text-right"
+                  style={{ color: ytdDebtChange > 50 ? '#00FF94' : ytdDebtChange < -50 ? '#FF4488' : '#8899aa', fontFamily: 'var(--font-dm-mono)' }}
+                >
+                  {sign(ytdDebtChange)}{gbp(ytdDebtChange)}
                 </span>
               </div>
-            )
-          })}
+
+            </div>
+          </div>
         </section>
+
+        {/* Table legend */}
+        <p className="mb-6 px-1 text-xs" style={{ color: '#4a5568' }}>
+          <span style={{ color: '#8899aa' }}>Spending Surplus</span> = income minus actual goods/services consumed.{' '}
+          <span style={{ color: '#8899aa' }}>CC Debt Δ</span> = repayments minus CC spending this period (↓ green = paying down, ↑ red = accumulating).
+        </p>
 
       </main>
       <BottomNav />

@@ -1,10 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
-import { ArrowDownLeft, ArrowUpRight, Sparkles } from 'lucide-react'
+import { ArrowDownLeft, ArrowUpRight } from 'lucide-react'
 import Link from 'next/link'
-import { getCurrentPayPeriod, getNextPayday } from '@/lib/payPeriod'
+import { getCurrentPayPeriod } from '@/lib/payPeriod'
 import { getFinancialSummary } from '@/lib/financialSummary'
+import { SurplusBreakdown } from '@/components/SurplusBreakdown'
+import { DashboardWaterfall, type WaterfallTx } from '@/components/DashboardWaterfall'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,50 +52,41 @@ function txIcon(category: string | null, type: string): string {
   return type === 'credit' ? '💰' : '💸'
 }
 
-// ─── Waterfall row ─────────────────────────────────────────────────────────────
-
-function WaterfallRow({
-  label,
-  amount,
-  color,
-  pct,
-  indent = false,
-}: {
-  label:  string
-  amount: number
-  color:  string
-  pct:    number
-  indent?: boolean
-}) {
-  return (
-    <div className={`flex items-center gap-3 py-2 ${indent ? 'pl-4' : ''}`}>
-      <div className="w-28 shrink-0">
-        <p className="text-xs" style={{ color: '#8899aa' }}>{label}</p>
-      </div>
-      <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
-        />
-      </div>
-      <span
-        className="w-20 text-right text-sm font-semibold shrink-0"
-        style={{ color, fontFamily: 'var(--font-dm-mono)' }}
-      >
-        -{gbp0(amount)}
-      </span>
-    </div>
-  )
-}
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default async function DashboardPage() {
   const supabase   = await createSupabaseServerClient()
   const period     = getCurrentPayPeriod()
-  const nextPayday = getNextPayday()
 
-  const [summary, recentRes] = await Promise.all([
+  // Resolve account IDs for the waterfall drilldown
+  const { data: accts } = await supabase.from('accounts').select('id, name')
+  const nwMainId  = accts?.find(a => a.name === 'NatWest Main')?.id
+  const barcId    = accts?.find(a => a.name === 'Barclaycard Rewards')?.id
+  const hsbcIds   = (accts ?? []).filter(a => a.name.includes('HSBC') && a.name.includes('Credit')).map(a => a.id)
+  const tescoIds  = (accts ?? []).filter(a => a.name.includes('Tesco') && a.name.includes('Credit')).map(a => a.id)
+
+  async function fetchPeriodTxns(ids: (string | undefined)[]): Promise<WaterfallTx[]> {
+    const valid = ids.filter((id): id is string => !!id)
+    if (!valid.length) return []
+    const { data } = await supabase
+      .from('transactions')
+      .select('id, date, description, merchant_name, amount, category, tag, transfer_flag')
+      .in('account_id', valid)
+      .gte('date', period.start)
+      .lte('date', period.end)
+      .order('date', { ascending: false })
+    return (data ?? []).map(t => ({
+      id:            t.id as string,
+      date:          t.date as string,
+      merchant:      (t.merchant_name || t.description) as string,
+      amount:        Number(t.amount),
+      category:      t.category as string | null,
+      tag:           t.tag as string | null,
+      transfer_flag: t.transfer_flag as boolean,
+    }))
+  }
+
+  const [summary, recentRes, nwPeriodTxns, ccPeriodTxns] = await Promise.all([
     getFinancialSummary(supabase, period.start, period.end),
     supabase
       .from('transactions')
@@ -101,56 +94,51 @@ export default async function DashboardPage() {
       .order('date', { ascending: false })
       .order('created_at', { ascending: false })
       .limit(10),
+    fetchPeriodTxns([nwMainId]),
+    fetchPeriodTxns([barcId, ...hsbcIds, ...tescoIds]),
   ])
 
-  // ── Days to payday ─────────────────────────────────────────────────────────
-  const now = new Date()
-  now.setHours(0, 0, 0, 0)
-  const daysToPayday = Math.max(0, Math.ceil((nextPayday.getTime() - now.getTime()) / 86400000))
+  const { income, committedCosts, spendingView, cashFlowView, debtHealthIndicator, savings } = summary
 
-  const { income, realExpenses, savingsMovements, netPosition } = summary
+  const cashRemaining     = cashFlowView.cashRemaining
+  const accountingSurplus = spendingView.spendingSurplus
+  const realSpendTotal    = committedCosts.total + spendingView.totalSpending
 
   // ── Summary cards ─────────────────────────────────────────────────────────
   const cards = [
     {
       label: income.isBonus ? 'Salary 🎉 Bonus' : 'Salary',
-      value: gbp(income.salary),
+      value: gbp(income.total),
       sub:   income.isBonus
         ? `Normal ~${gbp0(income.normalSalary)} · Bonus +${gbp0(income.bonusAmount)}`
-        : `Pay period ends ${nextPayday.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`,
+        : 'Normal £3,494',
       color: '#00FF94',
     },
     {
-      label: 'Real Spend',
-      value: gbp(realExpenses.total),
-      sub:   `${income.salary > 0 ? Math.round((realExpenses.total / income.salary) * 100) : 0}% of salary`,
-      color: realExpenses.total <= income.salary ? '#FF4488' : '#FF2222',
+      label: 'Spending Surplus',
+      value: (accountingSurplus < 0 ? '-' : '+') + gbp(accountingSurplus),
+      sub:   `${income.total > 0 ? Math.round((realSpendTotal / income.total) * 100) : 0}% of salary on goods/services`,
+      color: accountingSurplus >= 0 ? '#00D4FF' : '#FF4488',
     },
     {
-      label: 'Net Saved',
-      value: gbp(savingsMovements.net),
-      sub:   `${income.salary > 0 ? Math.round(netPosition.savingsRate * 100) : 0}% savings rate`,
-      color: '#A78BFA',
+      label: 'Debt Health',
+      value: debtHealthIndicator.trend === 'paying_down'
+        ? `Paying down £${Math.round(debtHealthIndicator.trendAmount)}`
+        : debtHealthIndicator.trend === 'accumulating'
+        ? `Accumulating £${Math.round(debtHealthIndicator.trendAmount)}`
+        : 'Neutral',
+      sub:   `CC spend ${gbp0(debtHealthIndicator.ccSpendingThisPeriod)} · repaid ${gbp0(debtHealthIndicator.ccRepaymentsThisPeriod)}`,
+      color: debtHealthIndicator.trend === 'paying_down' ? '#00FF94'
+           : debtHealthIndicator.trend === 'accumulating' ? '#FF4488'
+           : '#8899aa',
     },
     {
-      label: netPosition.surplusDeficit >= 0 ? 'Surplus' : 'Deficit',
-      value: (netPosition.surplusDeficit < 0 ? '-' : '') + gbp(netPosition.surplusDeficit),
-      sub:   `${daysToPayday} days to payday`,
-      color: netPosition.surplusDeficit >= 0 ? '#00D4FF' : '#FF4488',
+      label: cashRemaining >= 0 ? 'Cash Remaining' : 'Cash Deficit',
+      value: (cashRemaining < 0 ? '-' : '') + gbp(cashRemaining),
+      sub:   'After all NatWest outflows',
+      color: cashRemaining >= 0 ? '#00D4FF' : '#FF4488',
     },
   ]
-
-  // ── Waterfall bars ─────────────────────────────────────────────────────────
-  const baseForPct = income.salary || 1
-  const waterfall = [
-    { label: 'Rent',          amount: summary.rent.total,                     color: '#A78BFA' },
-    { label: 'Car Finance',   amount: summary.carFinance.total,               color: '#A78BFA' },
-    { label: 'Bills',         amount: summary.fixedBills.total,               color: '#A78BFA' },
-    { label: 'Discretionary', amount: summary.directDiscretionary.total,      color: '#00D4FF' },
-    { label: 'CC Spend',      amount: summary.creditCardSpending.grandTotal,  color: '#00D4FF' },
-    { label: 'Saved',         amount: summary.savingsMovements.net,           color: '#FF4488' },
-    { label: 'CC Repayments', amount: summary.creditCardRepayments.total,     color: '#4a5568' },
-  ].filter(row => row.amount > 0)
 
   const recent = recentRes.data ?? []
   const hour   = new Date().getHours()
@@ -192,6 +180,22 @@ export default async function DashboardPage() {
           ))}
         </section>
 
+        {/* Surplus breakdown (collapsible) */}
+        <section className="mb-8 -mt-4">
+          <SurplusBreakdown
+            salary={income.salary}
+            fixedTotal={committedCosts.total}
+            ccRepayments={cashFlowView.ccRepayments.total}
+            savingsNet={savings.net}
+            monzoTransferNet={cashFlowView.cashMovements.monzoTransfer}
+            familyTransferNet={cashFlowView.cashMovements.familyTransfers}
+            directSpend={spendingView.directFromNatwest.total}
+            cashRemaining={cashRemaining}
+            ccCardSpend={debtHealthIndicator.ccSpendingThisPeriod}
+            accountingSurplus={accountingSurplus}
+          />
+        </section>
+
         {/* Money flow waterfall */}
         <section className="mb-8">
           <div className="mb-3 flex items-center justify-between">
@@ -200,57 +204,12 @@ export default async function DashboardPage() {
               {period.start.slice(5).replace('-', '/')} – {period.end.slice(5).replace('-', '/')}
             </span>
           </div>
-
-          <div
-            className="rounded-2xl p-4 md:p-5"
-            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
-          >
-            {/* Income bar */}
-            <div className="flex items-center gap-3 pb-3 mb-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="w-28 shrink-0">
-                <p className="text-xs font-medium" style={{ color: '#00FF94' }}>Salary In</p>
-              </div>
-              <div className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: '#00FF9430' }}>
-                <div className="h-full rounded-full w-full" style={{ backgroundColor: '#00FF94' }} />
-              </div>
-              <span
-                className="w-20 text-right text-sm font-semibold shrink-0"
-                style={{ color: '#00FF94', fontFamily: 'var(--font-dm-mono)' }}
-              >
-                +{gbp0(income.salary)}
-              </span>
-            </div>
-
-            {/* Outflows */}
-            {waterfall.map(row => (
-              <WaterfallRow
-                key={row.label}
-                label={row.label}
-                amount={row.amount}
-                color={row.color}
-                pct={(row.amount / baseForPct) * 100}
-              />
-            ))}
-
-            {/* Remaining */}
-            <div className="flex items-center gap-3 pt-3 mt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="w-28 shrink-0">
-                <p className="text-xs font-medium" style={{ color: summary.cashFlow.remaining >= 0 ? '#00D4FF' : '#FF4488' }}>
-                  Remaining
-                </p>
-              </div>
-              <div className="flex-1" />
-              <span
-                className="w-20 text-right text-sm font-bold shrink-0"
-                style={{
-                  color: summary.cashFlow.remaining >= 0 ? '#00D4FF' : '#FF4488',
-                  fontFamily: 'var(--font-dm-mono)',
-                }}
-              >
-                {summary.cashFlow.remaining >= 0 ? '+' : '-'}{gbp0(summary.cashFlow.remaining)}
-              </span>
-            </div>
-          </div>
+          <DashboardWaterfall
+            summary={summary}
+            nwTxns={nwPeriodTxns}
+            ccTxns={ccPeriodTxns}
+            periodStr={`${period.start.slice(5).replace('-', '/')} – ${period.end.slice(5).replace('-', '/')}`}
+          />
         </section>
 
         {/* Recent transactions */}

@@ -83,7 +83,7 @@ function autoTag(description: string): AutoTagResult {
   // ── Transfers ────────────────────────────────────────────────────────────────
   if (d.includes('GROCERYINTEL') || d.includes('GROCERY INTEL'))
     return { tag: 'Transfer', category: 'Transfer', transfer_flag: true }
-  if (d.includes('THAKER'))
+  if (d.includes('THAKER') || d.includes('THAKOR'))
     return { tag: 'Transfer', category: 'Family Transfer', transfer_flag: true }
   if (d.includes('CHASE'))
     return { tag: 'Transfer', category: 'Savings Transfer', transfer_flag: true }
@@ -117,13 +117,19 @@ function autoTag(description: string): AutoTagResult {
     return { tag: 'Fixed', category: 'Car Finance', transfer_flag: false }
   if (d.includes('NETFLIX') || d.includes('SPOTIFY') || d.includes('DISNEY') || d.includes('NOW TV') || d.includes('PRIME VIDEO'))
     return { tag: 'Fixed', category: 'TV & News', transfer_flag: false }
+  if (d.includes('HPI INSTANT INK') || d.includes('INSTANT INK'))
+    return { tag: 'Fixed', category: 'Subscriptions', transfer_flag: false }
+  if (d.includes('DVLA'))
+    return { tag: 'Fixed', category: 'Car Tax', transfer_flag: false }
+  if (/^\d{2}[A-Z]{3} A\/C \d+/.test(d))
+    return { tag: 'Fixed', category: 'Bank Charges', transfer_flag: false }
 
   // ── Discretionary ────────────────────────────────────────────────────────────
-  if (d.includes('SQUARE INC'))
+  if (d.includes('SQUARE INC') || d.includes('SAMWORTH'))
     return { tag: 'Discretionary', category: 'Staff Shop', transfer_flag: false }
   if (d.includes('MERCERS'))
     return { tag: 'Discretionary', category: 'Groceries', transfer_flag: false }
-  if (d.includes('TESCO') || d.includes('SAINSBURY') || d.includes('ASDA') || d.includes('MORRISONS') || d.includes('ALDI') || d.includes('LIDL') || d.includes('WAITROSE') || d.includes('CO-OP'))
+  if (d.includes('TESCO') || d.includes('SAINSBURY') || d.includes('ASDA') || d.includes('MORRISONS') || d.includes('ALDI') || d.includes('LIDL') || d.includes('WAITROSE') || d.includes('CO-OP') || d.includes('COSTCO'))
     return { tag: 'Discretionary', category: 'Groceries', transfer_flag: false }
   if (d.includes('PETROL') || d.includes('FUEL') || d.includes('BP ') || d.includes('SHELL') || d.includes('ESSO') || d.includes('TEXACO'))
     return { tag: 'Discretionary', category: 'Fuel', transfer_flag: false }

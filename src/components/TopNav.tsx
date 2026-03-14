@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange, List, Telescope } from 'lucide-react'
+import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange, List, Telescope, Vault } from 'lucide-react'
 import { SignOutButton } from '@/components/SignOutButton'
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/dashboard/trends',       label: 'Trends',       icon: BarChart2 },
   { href: '/dashboard/ytd',          label: 'YTD',          icon: CalendarRange },
   { href: '/dashboard/forecast',     label: 'Forecast',     icon: Telescope },
+  { href: '/dashboard/vault',        label: 'Vault',        icon: Vault },
 ]
 
 export function TopNav() {
