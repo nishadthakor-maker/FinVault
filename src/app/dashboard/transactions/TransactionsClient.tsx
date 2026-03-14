@@ -20,9 +20,11 @@ type Tx = {
   tag:           string | null
   transfer_flag: boolean
   account_id:    string
+  event_id:      string | null
 }
 
 type Account = { id: string; name: string }
+type FutureEventOption = { id: string; name: string; category: string | null; event_date: string }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +60,14 @@ const BULK_OPTIONS = [
   { tag: 'Discretionary', category: 'Transport',       label: '🚂 Transport' },
   { tag: 'Discretionary', category: 'Family',          label: '👨‍👩‍👧 Family' },
   { tag: 'Discretionary', category: 'Staff Shop',       label: '🏪 Staff Shop' },
+  { tag: 'Discretionary', category: 'Holiday',         label: '🏖️ Holiday' },
+  { tag: 'Discretionary', category: 'Christmas',       label: '🎄 Christmas' },
+  { tag: 'Discretionary', category: 'Gifts',           label: '🎁 Gifts' },
+  { tag: 'Discretionary', category: 'Kids Birthday',   label: '🎂 Kids Birthday' },
+  { tag: 'Discretionary', category: 'Education',       label: '🎓 Education' },
+  { tag: 'Discretionary', category: 'Family Events',   label: '💒 Family Events' },
+  { tag: 'Discretionary', category: 'Medical',         label: '🏥 Medical' },
+  { tag: 'Discretionary', category: 'Home',            label: '🏠 Home' },
   { tag: 'Discretionary', category: 'Other',           label: '📦 Other' },
   { tag: 'Transfer',      category: 'Transfer',        label: '↔️ Transfer' },
 ]
@@ -88,9 +98,11 @@ function shortAcct(name: string): string {
 export function TransactionsClient({
   transactions,
   accounts,
+  futureEvents = [],
 }: {
   transactions: Tx[]
   accounts:     Account[]
+  futureEvents?: FutureEventOption[]
 }) {
   const router = useRouter()
 
@@ -482,7 +494,7 @@ export function TransactionsClient({
 
                         {/* Category — TagPicker inline editor */}
                         <td className="px-3 py-3">
-                          <TagPicker txId={tx.id} tag={tx.tag} category={tx.category} />
+                          <TagPicker txId={tx.id} tag={tx.tag} category={tx.category} eventId={tx.event_id} events={futureEvents} />
                         </td>
 
                         {/* Amount */}
@@ -555,7 +567,7 @@ export function TransactionsClient({
                           >
                             {acctName}
                           </span>
-                          <TagPicker txId={tx.id} tag={tx.tag} category={tx.category} />
+                          <TagPicker txId={tx.id} tag={tx.tag} category={tx.category} eventId={tx.event_id} events={futureEvents} />
                         </div>
                       </div>
                     </div>

@@ -99,7 +99,7 @@ export default async function ForecastPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [eventsRes, accountsRes, assumptionsRes] = await Promise.all([
+  const [eventsRes, accountsRes, assumptionsRes, linkedTxRes, pastTxRes] = await Promise.all([
     supabase.from('future_events')
       .select('id, name, amount, amount_min, amount_max, event_date, category, recurrence_rule, notes')
       .eq('user_id', user.id)
@@ -113,10 +113,43 @@ export default async function ForecastPage() {
     supabase.from('scenario_assumptions')
       .select('scenario, salary, fixed_bills, cc_spend, direct_discretionary, extra_savings')
       .eq('user_id', user.id),
+    // Transactions linked to future events (for budget vs actuals)
+    supabase.from('transactions')
+      .select('event_id, amount')
+      .eq('user_id', user.id)
+      .not('event_id', 'is', null)
+      .lt('amount', 0),   // expenses only
+    // Past transactions for monthly actuals (Jan–Mar 2026)
+    supabase.from('transactions')
+      .select('date, tag, amount')
+      .eq('user_id', user.id)
+      .gte('date', '2026-01-01')
+      .lte('date', '2026-03-31')
+      .eq('transfer_flag', false),
   ])
 
   const events       = (eventsRes.data ?? []) as FutureEventItem[]
   const totalBalance = (accountsRes.data ?? []).reduce((sum, a) => sum + Number(a.balance), 0)
+
+  // Aggregate event spend from linked transactions
+  const eventSpend: Record<string, number> = {}
+  for (const tx of linkedTxRes.data ?? []) {
+    if (tx.event_id) {
+      eventSpend[tx.event_id] = (eventSpend[tx.event_id] ?? 0) + Math.abs(Number(tx.amount))
+    }
+  }
+
+  // Aggregate monthly actuals from past transactions
+  type MonthlyActual = { income: number; fixed: number; discretionary: number }
+  const monthlyActuals: Record<string, MonthlyActual> = {}
+  for (const tx of pastTxRes.data ?? []) {
+    const ym = tx.date.slice(0, 7)   // 'YYYY-MM'
+    if (!monthlyActuals[ym]) monthlyActuals[ym] = { income: 0, fixed: 0, discretionary: 0 }
+    const amt = Number(tx.amount)
+    if (tx.tag === 'Income')           monthlyActuals[ym].income        += amt
+    else if (tx.tag === 'Fixed')       monthlyActuals[ym].fixed         += Math.abs(amt)
+    else if (tx.tag === 'Discretionary') monthlyActuals[ym].discretionary += Math.abs(amt)
+  }
 
   // Merge saved assumptions with defaults
   const saved = assumptionsRes.data ?? []
@@ -148,6 +181,8 @@ export default async function ForecastPage() {
         totalBalance={totalBalance}
         configs={configs}
         insights={{ A: insightA, B: insightB, C: insightC }}
+        eventSpend={eventSpend}
+        monthlyActuals={monthlyActuals}
       />
       <BottomNav />
     </div>

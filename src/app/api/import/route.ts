@@ -131,6 +131,16 @@ function autoTag(description: string): AutoTagResult {
     return { tag: 'Discretionary', category: 'Parking', transfer_flag: false }
   if (d.includes('RESTAURANT') || d.includes('CAFE') || d.includes('COFFEE') || d.includes('MCDONALD') || d.includes('SUBWAY') || d.includes('PIZZA') || d.includes('NANDO'))
     return { tag: 'Discretionary', category: 'Dining Out', transfer_flag: false }
+  if (d.includes('BOOKING.COM') || d.includes('AIRBNB') || d.includes('RYANAIR') || d.includes('EASYJET') || d.includes('BRITISH AIRWAYS') || d.includes('TUI ') || d.includes('HOLIDAYINN') || d.includes('EXPEDIA'))
+    return { tag: 'Discretionary', category: 'Holiday', transfer_flag: false }
+  if (d.includes('XMAS') || d.includes('CHRISTMAS'))
+    return { tag: 'Discretionary', category: 'Christmas', transfer_flag: false }
+  if (d.includes('DENTAL') || d.includes('DENTIST') || d.includes('NHS ') || d.includes('PHARMACY') || d.includes('LLOYDS PHARMACY') || d.includes('SPECSAVERS') || d.includes('VISION EXPRESS'))
+    return { tag: 'Discretionary', category: 'Medical', transfer_flag: false }
+  if (d.includes('B&Q') || d.includes('WICKES') || d.includes('HOMEBASE') || d.includes('TOOLSTATION') || d.includes('SCREWFIX') || d.includes('IKEA'))
+    return { tag: 'Discretionary', category: 'Home', transfer_flag: false }
+  if (d.includes('CARD FACTORY') || d.includes('MOONPIG') || d.includes('FUNKY PIGEON'))
+    return { tag: 'Discretionary', category: 'Gifts', transfer_flag: false }
   if (d.includes('AMAZON') || d.includes('EBAY'))
     return { tag: 'Discretionary', category: 'Other', transfer_flag: false }
   if (d.includes('TRAIN') || d.includes('RAIL') || d.includes('TFL') || d.includes('BUS ') || d.includes('UBER'))

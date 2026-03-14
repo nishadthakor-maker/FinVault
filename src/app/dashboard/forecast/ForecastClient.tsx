@@ -2,18 +2,24 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, X, Pencil, Trash2, ChevronDown, ChevronUp, Sparkles, CalendarDays, TrendingDown } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronDown, ChevronUp, Sparkles, CalendarDays, TrendingDown, BarChart3 } from 'lucide-react'
 import { addFutureEvent, updateFutureEvent, deleteFutureEvent } from '@/app/actions/futureEvents'
 import { saveScenarioAssumptions } from '@/app/actions/scenarioAssumptions'
 import { computeProjection, balanceColor, eventMidpoint, type FutureEventItem, type ScenarioConfig, type MonthPoint } from '@/lib/forecastProjection'
+import { SinkingFunds } from './SinkingFunds'
+import { AnnualBudget } from './AnnualBudget'
+
+type MonthlyActual = { income: number; fixed: number; discretionary: number }
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
 type Props = {
-  events:       FutureEventItem[]
-  totalBalance: number
-  configs:      Record<'A' | 'B' | 'C', ScenarioConfig>
-  insights:     Record<'A' | 'B' | 'C', string | null>
+  events:         FutureEventItem[]
+  totalBalance:   number
+  configs:        Record<'A' | 'B' | 'C', ScenarioConfig>
+  insights:       Record<'A' | 'B' | 'C', string | null>
+  eventSpend:     Record<string, number>          // txn spend per event id
+  monthlyActuals: Record<string, MonthlyActual>  // keyed 'YYYY-MM'
 }
 
 type FormState = {
@@ -414,18 +420,22 @@ function ScenarioCard({
 
 function EventCard({
   event,
+  spent,
   onEdit,
   onDelete,
 }: {
   event:    FutureEventItem
+  spent:    number
   onEdit:   (e: FutureEventItem) => void
   onDelete: (id: string) => void
 }) {
   const [deleting, setDeleting] = useState(false)
-  const color = urgencyColor(event.event_date)
-  const emoji = CAT_EMOJI[event.category ?? ''] ?? '📦'
-  const mid   = eventMidpoint(event)
+  const color    = urgencyColor(event.event_date)
+  const emoji    = CAT_EMOJI[event.category ?? ''] ?? '📦'
+  const budget   = eventMidpoint(event)
   const hasRange = event.amount_min != null && event.amount_max != null && event.amount_min !== event.amount_max
+  const spentPct = Math.min(100, budget > 0 ? (spent / budget) * 100 : 0)
+  const remaining = Math.max(0, budget - spent)
 
   async function handleDelete() {
     setDeleting(true)
@@ -433,36 +443,48 @@ function EventCard({
   }
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5"
+    <div className="rounded-xl px-3 py-2.5"
       style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <span className="text-lg shrink-0">{emoji}</span>
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-medium">{event.name}</p>
-          <span className="text-[10px] rounded px-1.5 py-0.5 font-medium"
-            style={{ backgroundColor: `${color}15`, color, border: `1px solid ${color}30` }}>
-            {RECURRENCE_LABELS[event.recurrence_rule ?? 'one-off'] ?? event.recurrence_rule}
-          </span>
+      <div className="flex items-center gap-3">
+        <span className="text-lg shrink-0">{emoji}</span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="text-sm font-medium">{event.name}</p>
+            <span className="text-[10px] rounded px-1.5 py-0.5 font-medium"
+              style={{ backgroundColor: `${color}15`, color, border: `1px solid ${color}30` }}>
+              {RECURRENCE_LABELS[event.recurrence_rule ?? 'one-off'] ?? event.recurrence_rule}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+            <span className="text-xs" style={{ color: '#4a5568' }}>{fmtEventDate(event.event_date)}</span>
+            <span className="text-xs font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
+              {hasRange ? `${gbp(event.amount_min!)}–${gbp(event.amount_max!)}` : gbp(budget)}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-3 mt-0.5">
-          <span className="text-xs" style={{ color: '#4a5568' }}>{fmtEventDate(event.event_date)}</span>
-          <span className="text-xs font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
-            {hasRange ? `${gbp(event.amount_min!)}–${gbp(event.amount_max!)}` : gbp(mid)}
-          </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          <button onClick={() => onEdit(event)} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: '#4a5568' }}>
+            <Pencil size={12} />
+          </button>
+          <button onClick={handleDelete} disabled={deleting} className="p-1.5 rounded-lg transition-colors hover:bg-white/5 disabled:opacity-40" style={{ color: '#FF4488' }}>
+            <Trash2 size={12} />
+          </button>
         </div>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <button onClick={() => onEdit(event)}
-          className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
-          style={{ color: '#4a5568' }}>
-          <Pencil size={12} />
-        </button>
-        <button onClick={handleDelete} disabled={deleting}
-          className="p-1.5 rounded-lg transition-colors hover:bg-white/5 disabled:opacity-40"
-          style={{ color: '#FF4488' }}>
-          <Trash2 size={12} />
-        </button>
-      </div>
+
+      {/* Budget vs actuals — only show if there's any spend */}
+      {spent > 0 && (
+        <div className="mt-2.5">
+          <div className="flex justify-between text-[10px] mb-1">
+            <span style={{ color: '#4a5568' }}>Budgeted {gbp(budget)} · Spent {gbp(spent)} · Remaining <span style={{ color: remaining > 0 ? '#00FF94' : '#FF4488' }}>{gbp(remaining)}</span></span>
+            <span style={{ color: spentPct > 80 ? '#FF4488' : '#4a5568' }}>{Math.round(spentPct)}%</span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-full rounded-full transition-all"
+              style={{ width: `${spentPct}%`, backgroundColor: spentPct > 80 ? '#FF4488' : spentPct > 50 ? '#F59E0B' : '#00FF94' }} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -597,12 +619,14 @@ function EventForm({
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 
-export function ForecastClient({ events: initialEvents, totalBalance, configs, insights }: Props) {
+export function ForecastClient({ events: initialEvents, totalBalance, configs, insights, eventSpend, monthlyActuals }: Props) {
   const router = useRouter()
 
   // Sync events from server props
   const [events, setEvents] = useState<FutureEventItem[]>(initialEvents)
   useEffect(() => { setEvents(initialEvents) }, [initialEvents])
+
+  const [showAsPercent, setShowAsPercent] = useState(false)
 
   // UI state
   const [showForm,      setShowForm]      = useState(false)
@@ -728,6 +752,7 @@ export function ForecastClient({ events: initialEvents, totalBalance, configs, i
                 <EventCard
                   key={event.id}
                   event={event}
+                  spent={eventSpend[event.id] ?? 0}
                   onEdit={setEditingEvent}
                   onDelete={handleDeleteEvent}
                 />
@@ -736,6 +761,9 @@ export function ForecastClient({ events: initialEvents, totalBalance, configs, i
           </div>
         )}
       </section>
+
+      {/* ══ SECTION 1b: SINKING FUNDS ═════════════════════════════════════════ */}
+      <SinkingFunds events={events} salary={configs.A.salary} />
 
       {/* ══ SECTION 2: 12-MONTH CASH FLOW TIMELINE ════════════════════════════ */}
       <section className="space-y-4">
@@ -817,6 +845,26 @@ export function ForecastClient({ events: initialEvents, totalBalance, configs, i
               baseStats={s === 'A' ? null : statsA}
             />
           ))}
+        </div>
+      </section>
+
+      {/* ══ SECTION 4: ANNUAL BUDGET VIEW + YEARLY CHART ═══════════════════════ */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2">
+          <BarChart3 size={16} style={{ color: '#F59E0B' }} />
+          <h2 className="text-sm font-semibold uppercase tracking-widest" style={{ color: '#F59E0B', letterSpacing: '0.08em' }}>
+            Annual Budget View
+          </h2>
+        </div>
+        <div className="rounded-2xl p-4"
+          style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}>
+          <AnnualBudget
+            events={events}
+            config={configs.A}
+            monthlyActuals={monthlyActuals}
+            showAsPercent={showAsPercent}
+            onTogglePercent={() => setShowAsPercent(v => !v)}
+          />
         </div>
       </section>
 
