@@ -2,19 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, Upload, CreditCard, TrendingUp, BarChart2, CalendarRange, List, Telescope, Vault } from 'lucide-react'
+import { LayoutDashboard, MessageCircle, TrendingUp, BarChart2, Telescope, CalendarRange, List, Upload, Vault, CreditCard } from 'lucide-react'
 import { SignOutButton } from '@/components/SignOutButton'
 
 const navItems = [
-  { href: '/',                    label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/import',    label: 'Import',    icon: Upload },
-  { href: '/dashboard/accounts',  label: 'Accounts',  icon: CreditCard },
-  { href: '/dashboard/transactions', label: 'Transactions', icon: List },
+  { href: '/',                       label: 'Dashboard',    icon: LayoutDashboard },
+  { href: '/dashboard/assistant',    label: 'Ask AI',       icon: MessageCircle },
   { href: '/dashboard/pl',           label: 'P&L',          icon: TrendingUp },
   { href: '/dashboard/trends',       label: 'Trends',       icon: BarChart2 },
-  { href: '/dashboard/ytd',          label: 'YTD',          icon: CalendarRange },
   { href: '/dashboard/forecast',     label: 'Forecast',     icon: Telescope },
+  { href: '/dashboard/ytd',          label: 'YTD',          icon: CalendarRange },
+  { href: '/dashboard/transactions', label: 'Transactions', icon: List },
+  { href: '/dashboard/import',       label: 'Import',       icon: Upload },
   { href: '/dashboard/vault',        label: 'Vault',        icon: Vault },
+  { href: '/dashboard/accounts',     label: 'Accounts',     icon: CreditCard },
 ]
 
 export function TopNav() {

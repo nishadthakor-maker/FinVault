@@ -1,161 +1,155 @@
-import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { TopNav } from '@/components/TopNav'
 import { BottomNav } from '@/components/BottomNav'
-import { Building2, Plus, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Lock, CreditCard, Landmark } from 'lucide-react'
 
-// Error messages surfaced from the OAuth callback
-const ERROR_MESSAGES: Record<string, string> = {
-  auth_failed:           'Authorisation was cancelled or failed. Please try again.',
-  invalid_state:         'Session mismatch — please try connecting again.',
-  token_exchange_failed: 'Could not retrieve tokens from TrueLayer. Please try again.',
-  db_error:              'Tokens were received but could not be saved. Please try again.',
+export const dynamic = 'force-dynamic'
+
+function gbp(n: number) {
+  return Number(n).toLocaleString('en-GB', { style: 'currency', currency: 'GBP' })
 }
 
-export default async function AccountsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ error?: string }>
-}) {
-  const { error } = await searchParams
+const ACCOUNT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; style?: React.CSSProperties }>> = {
+  credit: CreditCard,
+  current: Landmark,
+  savings: Landmark,
+}
 
+export default async function AccountsPage() {
   const supabase = await createSupabaseServerClient()
 
-  const { data: tokenRow } = await supabase
-    .from('tokens')
-    .select('provider, expires_at, updated_at')
-    .eq('provider', 'truelayer')
-    .maybeSingle()
+  const { data: accounts } = await supabase
+    .from('accounts')
+    .select('id, name, balance, type, is_active, currency')
+    .order('type')
+    .order('name')
 
-  const isConnected = !!tokenRow
+  const activeAccounts = (accounts ?? []).filter(a => a.is_active)
+
+  // Group by type
+  const grouped: Record<string, typeof activeAccounts> = {}
+  for (const acc of activeAccounts) {
+    const t = acc.type ?? 'other'
+    if (!grouped[t]) grouped[t] = []
+    grouped[t].push(acc)
+  }
+
+  const typeLabels: Record<string, string> = {
+    current: 'Current Accounts',
+    savings: 'Savings',
+    credit:  'Credit Cards',
+    other:   'Other',
+  }
+
+  const typeOrder = ['current', 'savings', 'credit', 'other']
 
   return (
     <div className="min-h-screen pb-24 md:pb-8" style={{ backgroundColor: '#0f1923', color: '#f0f4f8' }}>
-
-      {/* Top nav */}
       <TopNav />
 
       <main className="mx-auto w-full max-w-4xl px-4 pt-6 md:px-8">
 
-        {/* Error banner */}
-        {error && ERROR_MESSAGES[error] && (
-          <div
-            className="mb-6 flex items-start gap-3 rounded-xl px-4 py-3"
-            style={{ backgroundColor: '#FF448815', border: '1px solid #FF448840' }}
-          >
-            <AlertCircle size={16} className="mt-0.5 shrink-0" style={{ color: '#FF4488' }} />
-            <p className="text-sm" style={{ color: '#FF4488' }}>{ERROR_MESSAGES[error]}</p>
-          </div>
-        )}
-
         {/* Page header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-semibold md:text-3xl">Connected Accounts</h1>
-            <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
-              Link your bank to sync balances and transactions.
-            </p>
-          </div>
-          {isConnected && (
-            <Link
-              href="/api/truelayer/connect"
-              className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', color: '#00D4FF', boxShadow: '0 1px 6px rgba(0,0,0,0.2)' }}
-            >
-              <Plus size={14} />
-              Add bank
-            </Link>
-          )}
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold md:text-3xl">Accounts</h1>
+          <p className="mt-1 text-sm" style={{ color: '#8899aa' }}>
+            Your linked accounts and balances.
+          </p>
         </div>
 
-        {isConnected ? (
-          /* ── Connected state ── */
+        {/* Open Banking — Coming Soon card */}
+        <section
+          className="mb-8 rounded-2xl p-5 flex items-start gap-4"
+          style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #1e1b3a 100%)', border: '1px solid rgba(167,139,250,0.2)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
+        >
           <div
-            className="rounded-2xl p-5 md:p-6"
-            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.2)' }}
           >
-            {/* Connection status row */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div
-                  className="flex h-10 w-10 items-center justify-center rounded-full"
-                  style={{ backgroundColor: '#0f1923' }}
-                >
-                  <Building2 size={18} style={{ color: '#00D4FF' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold">TrueLayer (Sandbox)</p>
-                  <p className="text-xs" style={{ color: '#8899aa' }}>
-                    Connected ·{' '}
-                    {tokenRow.updated_at
-                      ? `Last synced ${new Date(tokenRow.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`
-                      : 'Just connected'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 size={16} style={{ color: '#00FF94' }} />
-                <span className="text-xs font-medium" style={{ color: '#00FF94' }}>Active</span>
-              </div>
-            </div>
+            <Lock size={18} style={{ color: '#A78BFA' }} />
+          </div>
+          <div>
+            <p className="text-sm font-semibold" style={{ color: '#A78BFA' }}>Open Banking — Coming Soon</p>
+            <p className="mt-1 text-sm leading-relaxed" style={{ color: '#8899aa' }}>
+              Direct bank connections will be available soon. Import statements via the{' '}
+              <a href="/dashboard/import" className="underline" style={{ color: '#00D4FF' }}>Import page</a>{' '}
+              in the meantime.
+            </p>
+          </div>
+        </section>
 
-            <div className="mt-5 pt-5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <RefreshCw size={14} style={{ color: '#8899aa' }} />
-                <p className="text-xs font-medium uppercase tracking-wider" style={{ color: '#8899aa' }}>
-                  Accounts — sync coming in Phase 1
-                </p>
-              </div>
-              {/* Placeholder skeleton rows */}
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between rounded-xl px-4 py-3 mb-2 last:mb-0"
-                  style={{ backgroundColor: '#0f1923' }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                    <div className="space-y-1.5">
-                      <div className="h-3 w-28 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                      <div className="h-2.5 w-16 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                    </div>
-                  </div>
-                  <div className="h-4 w-16 rounded animate-pulse" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} />
-                </div>
-              ))}
-            </div>
+        {/* Account list */}
+        {activeAccounts.length === 0 ? (
+          <div
+            className="rounded-2xl px-6 py-12 text-center"
+            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <p className="text-sm" style={{ color: '#4a5568' }}>No accounts found. Import a statement to add accounts.</p>
           </div>
         ) : (
-          /* ── Empty state ── */
-          <div
-            className="flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
-            style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
-          >
-            <div
-              className="mb-5 flex h-16 w-16 items-center justify-center rounded-full"
-              style={{ backgroundColor: '#0f1923' }}
-            >
-              <Building2 size={28} style={{ color: '#00D4FF' }} />
-            </div>
-            <h2 className="mb-2 text-lg font-semibold">No bank connected yet</h2>
-            <p className="mb-8 max-w-xs text-sm" style={{ color: '#8899aa' }}>
-              Connect your bank account via TrueLayer to start syncing your balances and transactions.
-            </p>
-            <Link
-              href="/api/truelayer/connect"
-              className="rounded-xl px-6 py-3 text-sm font-semibold transition-opacity hover:opacity-80"
-              style={{ backgroundColor: '#00D4FF', color: '#0f1923' }}
-            >
-              Connect your bank
-            </Link>
-            <p className="mt-4 text-xs" style={{ color: '#4a5568' }}>
-              Secured with AES-256 encryption · Powered by TrueLayer
-            </p>
+          <div className="space-y-6">
+            {typeOrder.filter(t => grouped[t]?.length).map(type => {
+              const accs = grouped[type]
+              const Icon = ACCOUNT_TYPE_ICONS[type] ?? CreditCard
+              const typeTotal = accs.reduce((s, a) => s + Number(a.balance ?? 0), 0)
+
+              return (
+                <section key={type}>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: '#8899aa', letterSpacing: '0.08em' }}>
+                      {typeLabels[type] ?? type}
+                    </h2>
+                    <span className="text-xs font-semibold" style={{ color: type === 'credit' ? '#FF4488' : '#00D4FF', fontFamily: 'var(--font-dm-mono)' }}>
+                      {gbp(typeTotal)}
+                    </span>
+                  </div>
+
+                  <div
+                    className="rounded-2xl overflow-hidden"
+                    style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 2px 12px rgba(0,0,0,0.3)' }}
+                  >
+                    {accs.map((acc, i) => {
+                      const balance   = Number(acc.balance ?? 0)
+                      const isCredit  = acc.type === 'credit'
+                      const balColor  = isCredit
+                        ? (balance < 0 ? '#FF4488' : '#00FF94')
+                        : (balance >= 0 ? '#00D4FF' : '#FF4488')
+
+                      return (
+                        <div
+                          key={acc.id}
+                          className="flex items-center gap-3 px-4 py-4"
+                          style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(255,255,255,0.06)' }}
+                        >
+                          <div
+                            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                            style={{ backgroundColor: '#0f1923' }}
+                          >
+                            <Icon size={16} style={{ color: '#8899aa' }} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{acc.name}</p>
+                            <p className="text-xs capitalize" style={{ color: '#4a5568' }}>
+                              {acc.type ?? 'account'} · {acc.currency ?? 'GBP'}
+                            </p>
+                          </div>
+                          <span
+                            className="text-sm font-semibold shrink-0"
+                            style={{ color: balColor, fontFamily: 'var(--font-dm-mono)' }}
+                          >
+                            {gbp(balance)}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              )
+            })}
           </div>
         )}
 
       </main>
-
       <BottomNav />
     </div>
   )
