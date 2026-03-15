@@ -418,6 +418,8 @@ function ScenarioCard({
 
 // ─── Event Card ────────────────────────────────────────────────────────────────
 
+const COUNCIL_TAX_EMOJI = '🏛️'
+
 function EventCard({
   event,
   spent,
@@ -429,13 +431,21 @@ function EventCard({
   onEdit:   (e: FutureEventItem) => void
   onDelete: (id: string) => void
 }) {
-  const [deleting, setDeleting] = useState(false)
+  const [deleting,  setDeleting]  = useState(false)
+  const [expanded,  setExpanded]  = useState(false)
+
+  const isCouncilTax = event.category === 'Council Tax'
   const color    = urgencyColor(event.event_date)
-  const emoji    = CAT_EMOJI[event.category ?? ''] ?? '📦'
+  const emoji    = isCouncilTax ? COUNCIL_TAX_EMOJI : (CAT_EMOJI[event.category ?? ''] ?? '📦')
   const budget   = eventMidpoint(event)
   const hasRange = event.amount_min != null && event.amount_max != null && event.amount_min !== event.amount_max
-  const spentPct = Math.min(100, budget > 0 ? (spent / budget) * 100 : 0)
+  const spentPct  = Math.min(100, budget > 0 ? (spent / budget) * 100 : 0)
   const remaining = Math.max(0, budget - spent)
+
+  // Parse monthly schedule from notes — entries like "Apr £188.99, May £187.00, ..."
+  const scheduleItems: string[] = event.notes
+    ? event.notes.split(',').map(s => s.trim()).filter(Boolean)
+    : []
 
   async function handleDelete() {
     setDeleting(true)
@@ -443,9 +453,11 @@ function EventCard({
   }
 
   return (
-    <div className="rounded-xl px-3 py-2.5"
+    <div className="rounded-xl overflow-hidden"
       style={{ backgroundColor: '#1a2535', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <div className="flex items-center gap-3">
+
+      {/* Main row */}
+      <div className="flex items-center gap-3 px-3 py-2.5">
         <span className="text-lg shrink-0">{emoji}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -460,9 +472,22 @@ function EventCard({
             <span className="text-xs font-semibold" style={{ color, fontFamily: 'var(--font-dm-mono)' }}>
               {hasRange ? `${gbp(event.amount_min!)}–${gbp(event.amount_max!)}` : gbp(budget)}
             </span>
+            {isCouncilTax && (
+              <span className="text-[10px]" style={{ color: '#4a5568' }}>10 monthly payments</span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
+          {scheduleItems.length > 0 && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              className="p-1.5 rounded-lg transition-colors hover:bg-white/5"
+              style={{ color: '#4a5568' }}
+              title="Show payment schedule"
+            >
+              {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+            </button>
+          )}
           <button onClick={() => onEdit(event)} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: '#4a5568' }}>
             <Pencil size={12} />
           </button>
@@ -472,9 +497,9 @@ function EventCard({
         </div>
       </div>
 
-      {/* Budget vs actuals — only show if there's any spend */}
+      {/* Budget vs actuals */}
       {spent > 0 && (
-        <div className="mt-2.5">
+        <div className="px-3 pb-2.5">
           <div className="flex justify-between text-[10px] mb-1">
             <span style={{ color: '#4a5568' }}>Budgeted {gbp(budget)} · Spent {gbp(spent)} · Remaining <span style={{ color: remaining > 0 ? '#00FF94' : '#FF4488' }}>{gbp(remaining)}</span></span>
             <span style={{ color: spentPct > 80 ? '#FF4488' : '#4a5568' }}>{Math.round(spentPct)}%</span>
@@ -482,6 +507,34 @@ function EventCard({
           <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.06)' }}>
             <div className="h-full rounded-full transition-all"
               style={{ width: `${spentPct}%`, backgroundColor: spentPct > 80 ? '#FF4488' : spentPct > 50 ? '#F59E0B' : '#00FF94' }} />
+          </div>
+        </div>
+      )}
+
+      {/* Expandable schedule */}
+      {expanded && scheduleItems.length > 0 && (
+        <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: '#4a5568', letterSpacing: '0.08em' }}>
+            Payment schedule
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {scheduleItems.map((item, i) => {
+              const isNoPayment = item.toLowerCase().includes('no payment')
+              return (
+                <span
+                  key={i}
+                  className="text-[11px] px-2 py-0.5 rounded-lg"
+                  style={{
+                    backgroundColor: isNoPayment ? 'rgba(255,255,255,0.03)' : 'rgba(0,212,255,0.06)',
+                    color:           isNoPayment ? '#4a5568' : '#8899aa',
+                    border:          `1px solid ${isNoPayment ? 'rgba(255,255,255,0.04)' : 'rgba(0,212,255,0.1)'}`,
+                    fontFamily:      isNoPayment ? undefined : 'var(--font-dm-mono)',
+                  }}
+                >
+                  {item}
+                </span>
+              )
+            })}
           </div>
         </div>
       )}

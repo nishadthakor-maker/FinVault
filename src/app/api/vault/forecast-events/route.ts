@@ -39,32 +39,42 @@ export async function POST(req: NextRequest) {
     document_type?: string
   } | null
 
-  const docType = doc.type as string
+  const docType  = doc.type as string
   const provider = (meta?.provider || doc.name) as string
   const events: Record<string, unknown>[] = []
 
   if (docType === 'council_tax' && meta?.start_date) {
-    // Monthly events from start to end (or 12 months if no end)
-    const start = new Date(meta.start_date)
-    const end   = meta.end_date ? new Date(meta.end_date) : new Date(start.getFullYear() + 1, start.getMonth(), 1)
-    const amount = meta.monthly_amount ?? (meta.annual_amount ? meta.annual_amount / 10 : 0)
+    // Single annual summary event — UK council tax is 10 monthly payments (Apr–Jan, no Feb/Mar)
+    const monthly     = meta.monthly_amount ?? (meta.annual_amount ? meta.annual_amount / 10 : 0)
+    const annualTotal = meta.annual_amount ?? monthly * 10
+
+    // Build schedule note from start date
+    const start    = new Date(meta.start_date)
+    const months   = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const schedule: string[] = []
     const cur = new Date(start)
-    while (cur <= end) {
-      events.push({
-        user_id:     user.id,
-        document_id,
-        name:        `${provider} ${cur.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`,
-        amount,
-        amount_min:  amount,
-        amount_max:  amount,
-        event_date:  cur.toISOString().slice(0, 10),
-        type:        'expense',
-        category:    'Council Tax',
-        is_recurring: false,
-        is_confirmed: true,
-      })
+    for (let i = 0; i < 10; i++) {
+      schedule.push(`${months[cur.getMonth()]} £${monthly.toFixed(2)}`)
       cur.setMonth(cur.getMonth() + 1)
     }
+    const scheduleNote = schedule.join(', ') + '. No payment Feb–Mar.'
+
+    events.push({
+      user_id:      user.id,
+      document_id,
+      name:         `${provider} Annual Bill`,
+      amount:       annualTotal,
+      amount_min:   annualTotal,
+      amount_max:   annualTotal,
+      event_date:   meta.start_date,
+      type:         'expense',
+      category:     'Council Tax',
+      recurrence_rule: 'annual',
+      notes:        scheduleNote,
+      is_recurring: false,
+      is_confirmed: true,
+    })
+
   } else if (docType === 'insurance' && meta?.end_date) {
     const amount = meta.annual_amount ?? meta.monthly_amount ?? 0
     events.push({
@@ -77,31 +87,41 @@ export async function POST(req: NextRequest) {
       event_date:  meta.end_date,
       type:        'expense',
       category:    'Insurance',
+      recurrence_rule: 'annual',
       is_recurring: false,
       is_confirmed: false,
     })
+
   } else if ((docType === 'water' || docType === 'energy') && meta?.start_date) {
-    const amount = meta.monthly_amount ?? (meta.annual_amount ? meta.annual_amount / 12 : 0)
-    for (let m = 0; m < 12; m++) {
-      const d = new Date(meta.start_date)
-      d.setMonth(d.getMonth() + m)
-      events.push({
-        user_id:     user.id,
-        document_id,
-        name:        `${provider} ${d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric' })}`,
-        amount,
-        amount_min:  amount,
-        amount_max:  amount,
-        event_date:  d.toISOString().slice(0, 10),
-        type:        'expense',
-        category:    docType === 'water' ? 'Water' : 'Energy',
-        is_recurring: false,
-        is_confirmed: false,
-      })
+    const monthly     = meta.monthly_amount ?? (meta.annual_amount ? meta.annual_amount / 12 : 0)
+    const annualTotal = meta.annual_amount ?? monthly * 12
+    const start = new Date(meta.start_date)
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+    const schedule: string[] = []
+    const cur = new Date(start)
+    for (let i = 0; i < 12; i++) {
+      schedule.push(`${months[cur.getMonth()]} £${monthly.toFixed(2)}`)
+      cur.setMonth(cur.getMonth() + 1)
     }
+    events.push({
+      user_id:      user.id,
+      document_id,
+      name:         `${provider} Annual`,
+      amount:       annualTotal,
+      amount_min:   annualTotal,
+      amount_max:   annualTotal,
+      event_date:   meta.start_date,
+      type:         'expense',
+      category:     docType === 'water' ? 'Water' : 'Energy',
+      recurrence_rule: 'annual',
+      notes:        schedule.join(', '),
+      is_recurring: false,
+      is_confirmed: false,
+    })
+
   } else {
     // Generic single event
-    const amount = meta?.annual_amount ?? meta?.monthly_amount ?? 0
+    const amount    = meta?.annual_amount ?? meta?.monthly_amount ?? 0
     const eventDate = meta?.end_date ?? meta?.start_date ?? new Date().toISOString().slice(0, 10)
     events.push({
       user_id:     user.id,
@@ -113,6 +133,7 @@ export async function POST(req: NextRequest) {
       event_date:  eventDate,
       type:        'expense',
       category:    docType,
+      recurrence_rule: 'one-off',
       is_recurring: false,
       is_confirmed: false,
     })
