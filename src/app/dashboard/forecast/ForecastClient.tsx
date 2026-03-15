@@ -8,6 +8,7 @@ import { saveScenarioAssumptions } from '@/app/actions/scenarioAssumptions'
 import { computeProjection, balanceColor, eventMidpoint, type FutureEventItem, type ScenarioConfig, type MonthPoint } from '@/lib/forecastProjection'
 import { SinkingFunds } from './SinkingFunds'
 import { AnnualBudget } from './AnnualBudget'
+import { MonthlyImpact } from './MonthlyImpact'
 
 type MonthlyActual = { income: number; fixed: number; discretionary: number }
 
@@ -920,6 +921,13 @@ export function ForecastClient({ events: initialEvents, totalBalance, configs, i
           />
         </div>
       </section>
+
+      {/* ══ SECTION 5: MONTHLY FORECAST IMPACT ════════════════════════════════ */}
+      <MonthlyImpact
+        events={events}
+        config={configs.A}
+        monthlyActuals={monthlyActuals}
+      />
 
     </main>
   )

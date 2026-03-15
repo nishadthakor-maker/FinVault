@@ -7,6 +7,7 @@ import { getCurrentPayPeriod } from '@/lib/payPeriod'
 import { getFinancialSummary } from '@/lib/financialSummary'
 import { SurplusBreakdown } from '@/components/SurplusBreakdown'
 import { DashboardWaterfall, type WaterfallTx } from '@/components/DashboardWaterfall'
+import { FinancialSnapshot } from '@/components/FinancialSnapshot'
 
 export const dynamic = 'force-dynamic'
 
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
     }))
   }
 
-  const [summary, recentRes, nwPeriodTxns, ccPeriodTxns] = await Promise.all([
+  const [summary, recentRes, nwPeriodTxns, ccPeriodTxns, savingsAcctsRes] = await Promise.all([
     getFinancialSummary(supabase, period.start, period.end),
     supabase
       .from('transactions')
@@ -96,7 +97,10 @@ export default async function DashboardPage() {
       .limit(10),
     fetchPeriodTxns([nwMainId]),
     fetchPeriodTxns([barcId, ...hsbcIds, ...tescoIds]),
+    supabase.from('accounts').select('balance').eq('type', 'savings').eq('is_active', true),
   ])
+
+  const savingsBalance = (savingsAcctsRes.data ?? []).reduce((s, a) => s + Number(a.balance), 0)
 
   const { income, committedCosts, spendingView, cashFlowView, debtHealthIndicator, savings } = summary
 
@@ -149,6 +153,9 @@ export default async function DashboardPage() {
       <TopNav />
 
       <main className="mx-auto w-full max-w-4xl px-4 pt-6 md:px-8">
+
+        {/* Financial Snapshot */}
+        <FinancialSnapshot summary={summary} savingsBalance={savingsBalance} />
 
         {/* Welcome */}
         <section className="mb-6">
