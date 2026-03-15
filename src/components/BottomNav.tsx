@@ -2,11 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { LayoutDashboard, MessageCircle, TrendingUp, BarChart2, Telescope, CalendarRange, List, Upload, Vault, CreditCard } from 'lucide-react'
+import { LayoutDashboard, TrendingUp, BarChart2, Telescope, CalendarRange, List, Upload, Vault, CreditCard } from 'lucide-react'
 
 const navItems = [
   { href: '/',                       label: 'Home',      icon: LayoutDashboard },
-  { href: '/dashboard/assistant',    label: 'Ask AI',    icon: MessageCircle },
   { href: '/dashboard/pl',           label: 'P&L',       icon: TrendingUp },
   { href: '/dashboard/trends',       label: 'Trends',    icon: BarChart2 },
   { href: '/dashboard/forecast',     label: 'Forecast',  icon: Telescope },
